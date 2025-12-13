@@ -1,0 +1,13 @@
+# Maven output
+target/
+
+# Compiled class files
+*.class
+
+# Logs and temp files
+*.log
+*.tmp
+
+*.zip
+!*.json
+pom copy.xml
