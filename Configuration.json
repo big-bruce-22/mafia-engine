@@ -1,6 +1,21 @@
 {
     "version" : "0.0.1",
     "configuration" : {
-
+        "general" : {
+            "daytimeDiscussionTimer" : "40s",
+            "dayTimeVotingTimer" : "20s",
+            "nightTimeActionTimer" : "15s",
+            "anonymousVoting" : true,
+            "anonymousHeal" : false,
+            "secretRoles" : false,
+            "secretVoteOut" : false,
+            "overkillRule" : false
+        },
+        "goodRoleActions" : {
+            "doctorHealingCapacity" : 2,
+            "limitedSelfHeal" : false,
+            "detectiveInvestigations" : 1,
+            "officerFirearmLimit" : 1
+        }
     }
 }

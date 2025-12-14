@@ -52,9 +52,14 @@ public class Main {
                 continue;
             }
 
+            var randomTarget = players.get(rand.nextInt(0, players.size()));
+
+            if (randomTarget == player) {
+                randomTarget = players.get((players.indexOf(player) + 1) % players.size());
+            }
+            
             var ctx = new Context();
             ctx.actor(player);
-            var randomTarget = players.get(rand.nextInt(0, players.size()));
             ctx.target(randomTarget);
             contexts.add(ctx);
 
