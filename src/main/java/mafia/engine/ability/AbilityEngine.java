@@ -1,10 +1,10 @@
 package mafia.engine.ability;
 
-import mafia.engine.context.Context;
+import mafia.engine.player.action.PlayerActionContext;
 
 public class AbilityEngine {
     
-    public void registerAction(Context context) {
+    public void registerAction(PlayerActionContext context) {
         if (context.cancelled()) {
             return;
         }

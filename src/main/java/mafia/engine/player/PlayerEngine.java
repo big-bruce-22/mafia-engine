@@ -3,8 +3,9 @@ package mafia.engine.player;
 import java.util.List;
 
 import mafia.engine.ability.AbilityEngine;
-import mafia.engine.context.Context;
-import mafia.engine.game.GameEvent;
+import mafia.engine.game.event.GameEvent;
+import mafia.engine.player.action.PlayerActionContext;
+import mafia.engine.player.action.PlayerActionResult;
 import mafia.engine.rule.RuleEngine;
 
 // classic gameplay for now
@@ -13,7 +14,7 @@ public class PlayerEngine {
     private AbilityEngine abilityEngine = new AbilityEngine();
     private RuleEngine ruleEngine = new RuleEngine();
 
-    public void updatePlayersState(List<Context> contexts, List<Player> players) {
+    public void updatePlayersState(List<PlayerActionContext> contexts, List<Player> players) {
         for (var ctx : contexts) {
             ruleEngine.process(GameEvent.BEFORE_ABILITY, ctx);
 
@@ -22,10 +23,10 @@ public class PlayerEngine {
             }
 
             abilityEngine.registerAction(ctx);
-            var result = new ActionResult(ctx);
+            var result = new PlayerActionResult(ctx);
 
-            ctx.actor().getActionResults().add(result);
-            ctx.actionResult(result);
+            ctx.actor().getPlayerActionResults().add(result);
+            ctx.playerActionResult(result);
 
             ruleEngine.process(GameEvent.AFTER_ABILITY, ctx);
         }
@@ -41,14 +42,16 @@ public class PlayerEngine {
 
             // only in classic
             if (attemptedKills >= 1 && attemptedHeals == 0) {
-                player.setState(PlayerState.DEAD);
+                player.setState(PlayerState.KILLED);
+            } else if (attemptedKills >= 1 && attemptedHeals >= 1 && attemptedKills <= attemptedHeals) {
+                player.setState(PlayerState.SAVED);
             } else {
                 player.setState(PlayerState.ALIVE);
             }
         }
 
         for (var ctx : contexts) {
-            ActionResult result = ctx.actionResult();
+            PlayerActionResult result = ctx.playerActionResult();
 
             if (ctx.cancelled()) {
                 result.resultType(ResultType.FAILED);
@@ -60,7 +63,7 @@ public class PlayerEngine {
 
             switch (ctx.ability().getAction()) {
                 case KILL -> {
-                    if (target.getState() == PlayerState.DEAD) {
+                    if (target.getState() == PlayerState.KILLED) {
                         result.resultType(ResultType.SUCCESS);
                     } else {
                         result.resultType(ResultType.FAILED);
@@ -69,11 +72,12 @@ public class PlayerEngine {
                 }
 
                 case HEAL -> {
-                    if (target.getState() == PlayerState.ALIVE) {
-                        result.resultType(ResultType.SUCCESS);
-                    } else {
-                        result.resultType(ResultType.FAILED);
-                    }
+                    result.resultType(switch (target.getState()) {
+                        case SAVED -> ResultType.SUCCESS;
+                        case ALIVE, DEAD -> ResultType.NONE;
+                        case KILLED -> ResultType.FAILED;
+                        default -> throw new IllegalArgumentException("Unexpected value: " + target.getState());
+                    });
                 }
 
                 case INVESTIGATE -> {

@@ -1,11 +1,11 @@
 package mafia.engine.rule;
 
-import mafia.engine.context.Context;
-import mafia.engine.game.GameEvent;
+import mafia.engine.game.event.GameEvent;
+import mafia.engine.player.action.PlayerActionContext;
 
 public class RuleEngine {
     
-    public void process(GameEvent event, Context context) {
+    public void process(GameEvent event, PlayerActionContext context) {
         switch (event) {
             case BEFORE_ABILITY -> {
                 switch (context.ability().getAction()) {
@@ -15,7 +15,7 @@ public class RuleEngine {
             }
             case AFTER_ABILITY -> {
                 var ability = context.ability();
-                var actionResultData = context.actionResult().data();
+                var actionResultData = context.playerActionResult().data();
                 switch (ability.getAction()) {
                     case KILL -> {
                         // Example rule: If the target has a protective role, cancel the kill

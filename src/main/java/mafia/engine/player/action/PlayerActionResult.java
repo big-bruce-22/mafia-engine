@@ -1,31 +1,27 @@
-package mafia.engine.player;
+package mafia.engine.player.action;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import mafia.engine.context.Context;
+import mafia.engine.player.ResultType;
 
+@RequiredArgsConstructor
 @Accessors(fluent = true)
-public class ActionResult {
+public class PlayerActionResult {
 
     @NonNull @Getter
-    private final Context context;
+    private final PlayerActionContext context;
 
     @NonNull @Setter @Getter
-    private ResultType resultType;
+    private ResultType resultType = ResultType.SUCCESS;
 
     @NonNull @Setter @Getter
-    private Map<String, Object> data;
-
-    public ActionResult(Context context) {
-        this.context = context;
-        this.resultType = ResultType.SUCCESS;
-        this.data = new HashMap<>();
-    }
+    private Map<String, Object> data = new HashMap<>();
 
     public String toString() {
         return "%s did %s on %s with result %s and data %s".formatted(

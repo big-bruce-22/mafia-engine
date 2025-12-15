@@ -1,4 +1,4 @@
-package mafia.engine.context;
+package mafia.engine.player.action;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -6,11 +6,10 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import mafia.engine.ability.Ability;
-import mafia.engine.player.ActionResult;
 import mafia.engine.player.Player;
 
 @Accessors(fluent = true)
-public class Context {
+public class PlayerActionContext {
 
     @NonNull @Getter @Setter
     private Player actor, target;
@@ -22,7 +21,7 @@ public class Context {
     private boolean cancelled;
 
     @NonNull @Getter @Setter
-    private ActionResult actionResult;
+    private PlayerActionResult playerActionResult;
 
     public void cancel() {
         cancelled = true;

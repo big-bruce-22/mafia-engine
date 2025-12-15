@@ -1,4 +1,4 @@
-package mafia.engine.game;
+package mafia.engine.game.event;
 
 public enum GameEvent {
     BEFORE_ABILITY,

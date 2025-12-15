@@ -8,12 +8,8 @@ import java.util.Map;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
+import mafia.engine.player.action.PlayerActionResult;
 import mafia.engine.role.Role;
-
-enum PlayerState {
-    ALIVE,
-    DEAD
-}
 
 public class Player {
 
@@ -28,7 +24,7 @@ public class Player {
 
     // Records of actions taken by the player
     @Getter
-    private List<ActionResult> actionResults = new ArrayList<>();
+    private List<PlayerActionResult> playerActionResults = new ArrayList<>();
 
     // Count of receieved attempted actions by type
     @Getter
