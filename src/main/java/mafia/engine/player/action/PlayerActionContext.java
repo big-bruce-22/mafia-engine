@@ -23,7 +23,23 @@ public class PlayerActionContext {
     @NonNull @Getter @Setter
     private PlayerActionResult playerActionResult;
 
+    public PlayerActionContext(Player actor, Player target) {
+        this.actor = actor;
+        this.target = target;
+    }
+
+    public PlayerActionContext(Player actor, Player target, Ability ability) {
+        this.actor = actor;
+        this.target = target;
+        this.ability = ability;
+    }
+
     public void cancel() {
         cancelled = true;
+    }
+
+    @Override
+    public String toString() {
+        return "PlayerActionContext [actor=" + actor.name() + ", target=" + target.name() + ", ability=" + ability.name() + ", cancelled=" + cancelled + "]";
     }
 }

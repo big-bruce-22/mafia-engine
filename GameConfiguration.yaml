@@ -1,0 +1,129 @@
+version: 0.0.1
+configurations:
+  general:
+  - configurationName: nightTimeActionTimer
+    displayName: Nighttime Action Timer
+    valueType: duration
+    value: 2s
+    configurationDescription:
+    - How many seconds players may use abilities at night
+  - configurationName: daytimeDiscussionTimer
+    displayName: Daytime Discussion Timer
+    valueType: duration
+    value: 2s
+    configurationDescription:
+    - How many seconds players may discuss during the day
+  - configurationName: dayTimeVotingTimer
+    displayName: Daytime Voting Timer
+    valueType: duration
+    value: 2s
+    configurationDescription:
+    - How many seconds players may vote during the day
+  - configurationName: coworker
+    displayName: Coworker
+    valueType: boolean
+    value: true
+    configurationDescription:
+    - Good Players know who shares the same role as them
+  - configurationName: anonymousVoting
+    displayName: Anonymous Voting
+    valueType: boolean
+    value: true
+    configurationDescription:
+    - Players' votes are hidden from others
+  - configurationName: anonymousHeal
+    displayName: Anonymous Heal
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - Players do not know the Doctor's heals or whether they were saved
+  - configurationName: secretRoles
+    displayName: Secret Roles
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - Roles are not revealed publicly through conditional means
+  - configurationName: secretVoteOut
+    displayName: Secret Vote Out
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - Roles of players voted out are not revealed
+  - configurationName: overkillRule
+    displayName: Overkill Rule
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - 'On: A player survives only if Doctor heals match the number of kills on them
+      that night'
+    - 'Off: Only 1 Doctor heal is needed'
+  goodRoleActions:
+  - configurationName: doctorHealingCapacity
+    displayName: Doctor Healing Capacity
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many heals the Doctor(s) may do per night
+  - configurationName: limitedSelfHeal
+    displayName: Detective Investigations
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many investigations the Detective(s) may do per night
+  - configurationName: detectiveInvestigations
+    displayName: Officer Firearm Limit
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many successful shots the Officer(s) may have
+  - configurationName: officerFirearmLimit
+    displayName: Limited Self Heal
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - Doctors may only heal themselves once
+  evilRoleActions:
+  - configurationName: unifiedNoOfKillings
+    displayName: Unified No. Of Killings
+    valueType: integer
+    value: 0
+    configurationDescription:
+    - How many kills the Killers & Murderers may do per night
+  - configurationName: rogueKilling
+    displayName: Rogue Killing
+    valueType: boolean
+    value: true
+    configurationDescription:
+    - Killers & Murderers act independently from each other
+  - configurationName: killersNoOfKillings
+    displayName: Killers No. Of Killings
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many kills the Killer(s) may do per night
+  - configurationName: murderersNoOfKillings
+    displayName: Murderers No. Of Killings
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many kills the Murderer(s) may do per night
+  - configurationName: independentGodfather
+    displayName: Independent Godfather
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - The Godfather acts independently from Killers & Murderers
+  - configurationName: godfatherInvestigations
+    displayName: Godfather Investigations
+    valueType: string
+    selectionValues:
+    - unlimited
+    - limited
+    configurationDescription:
+    - How many limited investigations the Godfather has
+  - configurationName: targetedInvestigations
+    displayName: Targeted Investigations
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - The Godfather may only kill those he has previously investigated

@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import lombok.NonNull;
+
 /**
  * Utility class providing common operations for working with Java Streams and Collections.
  * <p>
@@ -500,5 +502,12 @@ public final class StreamUtils {
 
     public static final <T> List<T> distinct(Collection<T> col) {
         return col.stream().distinct().toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    public static final <T> List<T> combineLists(@NonNull List<T>... lists) {
+        return Arrays.stream(lists)
+            .flatMap(List::stream)
+            .toList();
     }
 }

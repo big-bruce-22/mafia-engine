@@ -31,14 +31,14 @@ public class RuleEngine {
                                 actionResultData
                                     .put(
                                         "investigationResult", 
-                                        context.target().getRole().getAlignment()
+                                        context.target().role().getAlignment()
                                     );
                             }
                             case "role" -> {
                                 actionResultData
                                     .put(
                                         "investigationResult", 
-                                        context.target().getRole()
+                                        context.target().role()
                                     );
                             }
                         }    

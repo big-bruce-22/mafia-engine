@@ -19,10 +19,10 @@ public class NightEvent {
     @Override
     public String toString() {
         return switch (state) {
-            case ALIVE -> player.getName() + " is alive";
-            case DEAD -> player.getName() + " is dead";
-            case KILLED -> player.getName() + " has been killed";
-            case SAVED -> player.getName() + " has been saved";
+            case ALIVE -> player.name() + " is alive";
+            case DEAD -> player.name() + " is dead";
+            case KILLED -> player.name() + " has been killed";
+            case SAVED -> player.name() + " has been saved";
             default -> throw new IllegalStateException("Unexpected state: " + state);
         };
     }

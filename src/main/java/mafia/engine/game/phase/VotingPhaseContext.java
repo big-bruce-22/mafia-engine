@@ -1,11 +1,25 @@
 package mafia.engine.game.phase;
 
-public class VotingPhaseContext implements PhaseContext<Void> {
+import java.util.ArrayList;
+import java.util.List;
+
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.Setter;
+import mafia.engine.game.vote.PlayerVote;
+
+public class VotingPhaseContext implements PhaseContext<List<PlayerVote>> {
+    
+    @NonNull @Setter @Getter
+    private List<PlayerVote> votes = new ArrayList<>();
+
+    public void addVote(PlayerVote vote) {
+        votes.add(vote);
+    }
 
     @Override
-    public Void getResult() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getResult'");
+    public List<PlayerVote> getResult() {
+        return votes;   
     }
     
 }

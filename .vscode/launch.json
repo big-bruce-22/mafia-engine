@@ -5,6 +5,13 @@
             "type": "java",
             "name": "Main",
             "request": "launch",
+            "mainClass": "cli.Main",
+            "projectName": "mafia-engine"
+        },
+        {
+            "type": "java",
+            "name": "Main",
+            "request": "launch",
             "mainClass": "Main",
             "projectName": "mafia-engine"
         },

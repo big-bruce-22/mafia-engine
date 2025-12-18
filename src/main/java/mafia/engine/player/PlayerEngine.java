@@ -25,29 +25,33 @@ public class PlayerEngine {
             abilityEngine.registerAction(ctx);
             var result = new PlayerActionResult(ctx);
 
-            ctx.actor().getPlayerActionResults().add(result);
+            ctx.actor().playerActionResults().add(result);
             ctx.playerActionResult(result);
 
             ruleEngine.process(GameEvent.AFTER_ABILITY, ctx);
         }
 
         for (var player : players) {
-            var attemptedKills = player.getAttemptedActions().get(PlayerAction.KILL);
-            var attemptedHeals = player.getAttemptedActions().get(PlayerAction.HEAL);
+            var attemptedKills = player.attemptedActions().get(PlayerAction.KILL);
+            var attemptedHeals = player.attemptedActions().get(PlayerAction.HEAL);
 
             attemptedKills = attemptedKills == null ? 0 : attemptedKills;
             attemptedHeals = attemptedHeals == null ? 0 : attemptedHeals;
 
             // System.out.println(player.getName() + " attemptedKills: " + attemptedKills + ", attemptedHeals: " + attemptedHeals);
-
+            if (player.state() != PlayerState.ALIVE) {
+                continue;
+            }
+            
             // only in classic
             if (attemptedKills >= 1 && attemptedHeals == 0) {
-                player.setState(PlayerState.KILLED);
+                player.state(PlayerState.KILLED);
             } else if (attemptedKills >= 1 && attemptedHeals >= 1 && attemptedKills <= attemptedHeals) {
-                player.setState(PlayerState.SAVED);
+                player.state(PlayerState.SAVED);
             } else {
-                player.setState(PlayerState.ALIVE);
+                player.state(PlayerState.ALIVE);
             }
+            player.attemptedActions().clear();
         }
 
         for (var ctx : contexts) {
@@ -63,7 +67,7 @@ public class PlayerEngine {
 
             switch (ctx.ability().getAction()) {
                 case KILL -> {
-                    if (target.getState() == PlayerState.KILLED) {
+                    if (target.state() == PlayerState.KILLED) {
                         result.resultType(ResultType.SUCCESS);
                     } else {
                         result.resultType(ResultType.FAILED);
@@ -72,11 +76,11 @@ public class PlayerEngine {
                 }
 
                 case HEAL -> {
-                    result.resultType(switch (target.getState()) {
+                    result.resultType(switch (target.state()) {
                         case SAVED -> ResultType.SUCCESS;
                         case ALIVE, DEAD -> ResultType.NONE;
                         case KILLED -> ResultType.FAILED;
-                        default -> throw new IllegalArgumentException("Unexpected value: " + target.getState());
+                        default -> throw new IllegalArgumentException("Unexpected value: " + target.state());
                     });
                 }
 

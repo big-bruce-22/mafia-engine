@@ -8,9 +8,11 @@ import java.util.Map;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
+import lombok.experimental.Accessors;
 import mafia.engine.player.action.PlayerActionResult;
 import mafia.engine.role.Role;
 
+@Accessors(fluent = true, chain = true)
 public class Player {
 
     @NonNull @Getter @Setter
@@ -20,7 +22,7 @@ public class Player {
     private Role role;
 
     @NonNull @Getter @Setter
-    private PlayerState state;
+    private volatile PlayerState state = PlayerState.ALIVE;
 
     // Records of actions taken by the player
     @Getter

@@ -1,0 +1,60 @@
+version: 0.0.1
+presets:
+- name: classic
+  minimumPlayers: 5
+  maximumPlayers: 10
+  primaryRoles:
+  - role: Civilian
+    players: -1
+  - role: Doctor
+    players: 1
+    abilityLimitationPerRound: 1
+  - role: Detective
+    players: 2
+    abilityLimitationPerRound: 1
+  - role: Killer
+    players: 2
+    abilityLimitationPerRound: 1
+  secondaryRoles: []
+- name: special
+  minimumPlayers: 11
+  maximumPlayers: 16
+  primaryRoles:
+  - role: Civilian
+    players: -1
+  - role: Doctor
+    players: 2
+    abilityLimitationPerRound: 2
+  - role: Detective
+    players: 2
+    abilityLimitationPerRound: 2
+  - role: Psycho
+    players: 2
+  - role: Killer
+    players: 3
+    abilityLimitationPerRound: 2
+  secondaryRoles: []
+- name: extreme
+  minimumPlayers: 17
+  maximumPlayers: -1
+  primaryRoles:
+  - role: Civilian
+    players: -1
+  - role: Doctor
+    players: 2
+    abilityLimitationPerRound: 2
+  - role: Detective
+    players: 2
+    abilityLimitationPerRound: 2
+  - role: Psycho
+    players: 3
+  - role: Officer
+    players: 1
+  - role: Killer
+    players: 2
+    abilityLimitationPerRound: 2
+  - role: Murderer
+    players: 1
+  - role: Godfather
+    players: 1
+  secondaryRoles: []

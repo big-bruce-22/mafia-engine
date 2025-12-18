@@ -3,8 +3,9 @@ package mafia.engine.game.phase;
 import lombok.NonNull;
 
 public class PhaseChannel<T> {
-    // @NonNull
-    private T context;
+
+    @NonNull
+    private volatile T context;
 
     public void send(T context) {
         this.context = context;
@@ -19,6 +20,6 @@ public class PhaseChannel<T> {
     }
 
     public void clear() {
-        context = null;
+        context = null;        
     }
 }

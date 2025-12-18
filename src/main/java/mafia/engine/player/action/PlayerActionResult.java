@@ -25,9 +25,9 @@ public class PlayerActionResult {
 
     public String toString() {
         return "%s did %s on %s with result %s and data %s".formatted(
-            context.actor().getName(),
+            context.actor().name(),
             context.ability().getAction().name(),
-            context.target().getName(),
+            context.target().name(),
             resultType,
             data.toString()
         );
