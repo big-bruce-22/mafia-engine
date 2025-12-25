@@ -1,4 +1,4 @@
-package mafia.engine.game.configuration;
+package mafia.engine.config;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;

@@ -1,4 +1,4 @@
-package mafia.engine.file;
+package mafia.engine.config.loader;
 
 import java.io.File;
 import java.io.IOException;

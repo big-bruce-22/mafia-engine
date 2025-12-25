@@ -8,7 +8,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import mafia.engine.player.ResultType;
 
 @RequiredArgsConstructor
 @Accessors(fluent = true)
@@ -18,7 +17,7 @@ public class PlayerActionResult {
     private final PlayerActionContext context;
 
     @NonNull @Setter @Getter
-    private ResultType resultType = ResultType.SUCCESS;
+    private PlayerActionResultType resultType = PlayerActionResultType.SUCCESS;
 
     @NonNull @Setter @Getter
     private Map<String, Object> data = new HashMap<>();

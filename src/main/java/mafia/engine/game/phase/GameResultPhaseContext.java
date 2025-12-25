@@ -1,7 +1,7 @@
 package mafia.engine.game.phase;
 
 import lombok.RequiredArgsConstructor;
-import mafia.engine.game.GameResult;
+import mafia.engine.core.GameResult;
 
 @RequiredArgsConstructor
 public class GameResultPhaseContext implements PhaseContext<GameResult> {

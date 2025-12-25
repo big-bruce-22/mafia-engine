@@ -3,9 +3,11 @@ package mafia.engine.player;
 import java.util.List;
 
 import mafia.engine.ability.AbilityEngine;
+import mafia.engine.core.GameConfiguration;
 import mafia.engine.game.event.GameEvent;
 import mafia.engine.player.action.PlayerActionContext;
 import mafia.engine.player.action.PlayerActionResult;
+import mafia.engine.player.action.PlayerActionResultType;
 import mafia.engine.rule.RuleEngine;
 
 // classic gameplay for now
@@ -14,7 +16,7 @@ public class PlayerEngine {
     private AbilityEngine abilityEngine = new AbilityEngine();
     private RuleEngine ruleEngine = new RuleEngine();
 
-    public void updatePlayersState(List<PlayerActionContext> contexts, List<Player> players) {
+    public void updatePlayersState(List<PlayerActionContext> contexts, List<Player> players, GameConfiguration configuration) {
         for (var ctx : contexts) {
             ruleEngine.process(GameEvent.BEFORE_ABILITY, ctx);
 
@@ -38,19 +40,31 @@ public class PlayerEngine {
             attemptedKills = attemptedKills == null ? 0 : attemptedKills;
             attemptedHeals = attemptedHeals == null ? 0 : attemptedHeals;
 
-            // System.out.println(player.getName() + " attemptedKills: " + attemptedKills + ", attemptedHeals: " + attemptedHeals);
             if (player.state() != PlayerState.ALIVE) {
                 continue;
             }
+
+            var isOverKill = configuration.getBooleanConfiguration(
+                                "general", 
+                                "overkillRule"
+                            );
+
+            var isSaved = isOverKill 
+                            ? attemptedHeals == attemptedKills 
+                            : attemptedHeals >= 1 && attemptedKills >= 1;
             
-            // only in classic
-            if (attemptedKills >= 1 && attemptedHeals == 0) {
-                player.state(PlayerState.KILLED);
-            } else if (attemptedKills >= 1 && attemptedHeals >= 1 && attemptedKills <= attemptedHeals) {
+            var isKilled = isOverKill 
+                            ? attemptedHeals != attemptedKills 
+                            : attemptedHeals < 1 && attemptedKills >= 1;
+            
+            if (isSaved) {
                 player.state(PlayerState.SAVED);
+            } else if (isKilled) {
+                player.state(PlayerState.KILLED);
             } else {
                 player.state(PlayerState.ALIVE);
             }
+            
             player.attemptedActions().clear();
         }
 
@@ -58,7 +72,7 @@ public class PlayerEngine {
             PlayerActionResult result = ctx.playerActionResult();
 
             if (ctx.cancelled()) {
-                result.resultType(ResultType.FAILED);
+                result.resultType(PlayerActionResultType.FAILED);
                 result.data().put("reason", "Action was cancelled");
                 continue;
             }
@@ -68,25 +82,25 @@ public class PlayerEngine {
             switch (ctx.ability().getAction()) {
                 case KILL -> {
                     if (target.state() == PlayerState.KILLED) {
-                        result.resultType(ResultType.SUCCESS);
+                        result.resultType(PlayerActionResultType.SUCCESS);
                     } else {
-                        result.resultType(ResultType.FAILED);
+                        result.resultType(PlayerActionResultType.FAILED);
                         result.data().put("reason", "Target survived");
                     }
                 }
 
                 case HEAL -> {
                     result.resultType(switch (target.state()) {
-                        case SAVED -> ResultType.SUCCESS;
-                        case ALIVE, DEAD -> ResultType.NONE;
-                        case KILLED -> ResultType.FAILED;
+                        case SAVED -> PlayerActionResultType.SUCCESS;
+                        case ALIVE, DEAD -> PlayerActionResultType.NONE;
+                        case KILLED -> PlayerActionResultType.FAILED;
                         default -> throw new IllegalArgumentException("Unexpected value: " + target.state());
                     });
                 }
 
                 case INVESTIGATE -> {
                     // data already filled by RuleEngine
-                    result.resultType(ResultType.INFO);
+                    result.resultType(PlayerActionResultType.INFO);
                 }
             }
         }

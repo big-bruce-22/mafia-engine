@@ -1,4 +1,4 @@
-package mafia.engine.game;
+package mafia.engine.core;
 
 public enum GameState {
     WAITING,

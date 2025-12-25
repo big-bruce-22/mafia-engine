@@ -1,12 +1,10 @@
-package mafia.engine.rule;
+package mafia.engine.role;
 
 import java.util.Collections;
 import java.util.List;
 
 import mafia.engine.player.Player;
 import mafia.engine.presets.Preset;
-import mafia.engine.role.Role;
-import mafia.engine.role.RoleDistribution;
 import mafia.engine.util.StreamUtils;
 
 public class DistributionEngine {
@@ -31,7 +29,7 @@ public class DistributionEngine {
                 null
             );
             player.role(role);
-            player.side(player.role().getAlignment());
+            player.alignment(player.role().getAlignment());
         }
     }
 }

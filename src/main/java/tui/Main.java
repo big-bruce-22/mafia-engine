@@ -1,4 +1,4 @@
-package cli;
+package tui;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -6,32 +6,77 @@ import java.util.Collections;
 import java.util.List;
 
 import mafia.engine.ability.Ability;
-import mafia.engine.config.GameConfiguration;
 import mafia.engine.config.PresetsConfig;
 import mafia.engine.config.RoleConfig;
-import mafia.engine.game.GameEngine;
-import mafia.engine.game.GameState;
+import mafia.engine.config.loader.Loader;
+import mafia.engine.core.GameConfiguration;
+import mafia.engine.core.GameEngine;
+import mafia.engine.core.GameRules;
+import mafia.engine.core.GameState;
+import mafia.engine.expression.evaluator.Evaluator;
+import mafia.engine.expression.lexer.Lexer;
+import mafia.engine.expression.parser.Parser;
 import mafia.engine.game.phase.GameResultPhaseContext;
 import mafia.engine.game.phase.MorningPhaseContext;
 import mafia.engine.game.phase.NightPhaseContext;
 import mafia.engine.game.phase.PhaseChannel;
+import mafia.engine.game.phase.RoleRevealPhaseContext;
 import mafia.engine.game.phase.VotingPhaseContext;
 import mafia.engine.game.phase.VotingResultPhaseContext;
 import mafia.engine.game.vote.PlayerVote;
 import mafia.engine.player.Player;
 import mafia.engine.player.PlayerState;
 import mafia.engine.player.action.PlayerActionContext;
+import mafia.engine.role.DistributionEngine;
 import mafia.engine.role.Role;
 import mafia.engine.util.StreamUtils;
 
 public class Main {
-    
-    public static void main(String[] args) throws Exception {
-        RoleConfig roleConfig = Loader.load("PrimaryRoles.yaml", RoleConfig.class);
-        PresetsConfig presetsConfig = Loader.load("Presets.yaml", PresetsConfig.class);
-        GameConfiguration gameConfig = Loader.load("GameConfiguration.yaml", GameConfiguration.class);
 
-        var players = Collections.synchronizedList(generatePlayers());
+    // public static void main(String[] args) throws Exception {
+    //     Screen screen = new DefaultTerminalFactory().createScreen();
+    //     screen.startScreen();
+
+    //     String[] options = {"Option A", "Option B", "Option C"};
+    //     boolean[] checked = {false, true, false};
+    //     int selected = 0;
+
+    //     while (true) {
+    //         screen.clear();
+    //         TextGraphics tg = screen.newTextGraphics();
+    //         for (int i = 0; i < options.length; i++) {
+    //             String prefix = checked[i] ? "[x] " : "[ ] ";
+    //             if (i == selected) {
+    //                 tg.setBackgroundColor(TextColor.ANSI.WHITE);
+    //                 tg.setForegroundColor(TextColor.ANSI.BLACK);
+    //             } else {
+    //                 tg.setBackgroundColor(TextColor.ANSI.DEFAULT);
+    //                 tg.setForegroundColor(TextColor.ANSI.DEFAULT);
+    //             }
+    //             tg.putString(2, i + 2, prefix + options[i]);
+    //         }
+    //         screen.refresh();
+
+    //         KeyStroke key = screen.readInput();
+    //         if (key.getKeyType() == KeyType.ArrowDown) selected = (selected + 1) % options.length;
+    //         else if (key.getKeyType() == KeyType.ArrowUp) selected = (selected - 1 + options.length) % options.length;
+    //         else if (key.getKeyType() == KeyType.Character && key.getCharacter() == ' ') checked[selected] = !checked[selected];
+    //         else if (key.getKeyType() == KeyType.Enter) break; // Done
+    //     }
+
+    //     screen.stopScreen();
+    //     for (int i = 0; i < options.length; i++) {
+    //         System.out.println(options[i] + ": " + checked[i]);
+    //     }
+    // }
+        
+    public static void main(String[] args) throws Exception {
+        RoleConfig roleConfig = Loader.load("mafia-engine/PrimaryRoles.yaml", RoleConfig.class);
+        PresetsConfig presetsConfig = Loader.load("mafia-engine/Presets.yaml", PresetsConfig.class);
+        GameConfiguration gameConfig = Loader.load("mafia-engine/GameConfiguration.yaml", GameConfiguration.class);
+        GameRules gameRules  = Loader.load("mafia-engine/GameRules.yaml", GameRules.class);
+
+        var players = generatePlayers();
         var roles = roleConfig.getRoles();
         var preset = presetsConfig.getPresets().getFirst();
 
@@ -40,18 +85,43 @@ public class Main {
         var votingPhaseChannel = new PhaseChannel<VotingPhaseContext>();
         var votingResultPhaseChannel = new PhaseChannel<VotingResultPhaseContext>();
         var gameResultPhaseChannel = new PhaseChannel<GameResultPhaseContext>();
+        var roleRevealPhaseChannel = new PhaseChannel<RoleRevealPhaseContext>();
+
+        // DistributionEngine distributor = new DistributionEngine();
+        // distributor.distributeRoles(preset, roles, players);
+
+        // var lexer = new Lexer();
+        // var parser = new Parser();
+        // var evaluator = new Evaluator();
+        // var parsed = parser.parse(lexer.tokenize("count(game.players, player.state is ALIVE and player.alignment is Good) + count(game.players, player.state is ALIVE and player.alignment is Neutral) < 2"));
+        // var parsed = parser.parse(lexer.tokenize("player.alignment is Evil"));
 
         var gameEngine = new GameEngine(
             players,
             roles,
-            preset
+            preset,
+            gameRules
         ).setChannels(
             nightPhaseChannel,
             morningPhaseChannel,
             votingPhaseChannel,
             votingResultPhaseChannel,
-            gameResultPhaseChannel
+            gameResultPhaseChannel,
+            roleRevealPhaseChannel
         ).configure(gameConfig);
+
+        // for (var player : players) {
+        //     var evaluation = evaluator.evaluate(parsed, player.properties(), "player");
+        //     System.out.println("evaluated player " + player.name() + " as evil: " + evaluation.result());
+        // }
+
+        // players.forEach(p -> p.state(PlayerState.ALIVE));
+        // var evaluation = evaluator.evaluate(parsed, gameEngine.gameProperties(), "game");
+        // System.out.println("no of good + no of neutral < no of evils " + evaluation.result());
+
+        // if (true) {
+        //     return;
+        // }
         
         new Thread(gameEngine::start).start();
 
@@ -69,9 +139,9 @@ public class Main {
         while (gameEngine.gameState() != GameState.ENDED) {
             switch (gameEngine.gameState()) {
                 case NIGHT      -> handleNightPhase(nightPhaseChannel, morningPhaseChannel, gameEngine);
-                case DAY        -> handleDayPhase(morningPhaseChannel, gameEngine);
+                case DAY        -> handleDayPhase(morningPhaseChannel, roleRevealPhaseChannel, gameEngine);
                 case DISCUSSION -> handleDiscussionPhase(morningPhaseChannel, gameEngine);
-                case VOTING     -> handleVotingPhase(votingPhaseChannel, votingResultPhaseChannel, gameEngine);
+                case VOTING     -> handleVotingPhase(votingPhaseChannel, votingResultPhaseChannel, roleRevealPhaseChannel, gameEngine);
                 default -> Thread.sleep(10);
             }
         }
@@ -79,12 +149,17 @@ public class Main {
         if (gameEngine.gameState() == GameState.ENDED) {
             System.out.println("Game has ended!");
             System.out.println(gameResultPhaseChannel.receive().getResult());
+            System.out.println("alive players");
+            players.stream().filter(p -> p.state() == PlayerState.ALIVE).forEach(p -> System.out.println(p.name()));
         }
     }
 
-    private static void handleVotingPhase(PhaseChannel<VotingPhaseContext> votingPhaseChannel,
-            PhaseChannel<VotingResultPhaseContext> votingResultPhaseChannel, GameEngine gameEngine)
-            throws InterruptedException {
+    private static void handleVotingPhase(
+        PhaseChannel<VotingPhaseContext> votingPhaseChannel,
+        PhaseChannel<VotingResultPhaseContext> votingResultPhaseChannel,
+        PhaseChannel<RoleRevealPhaseContext> roleRevealPhaseChannel,
+        GameEngine gameEngine
+    ) throws InterruptedException {
         
         System.out.println("Voting Phase...");
         var votingContext = new VotingPhaseContext();
@@ -93,38 +168,51 @@ public class Main {
 
         while (gameEngine.gameState() == GameState.VOTING) {
             Thread.sleep(10);
-            System.out.printf("\rVoting time is ongoing... (%ss left)", gameEngine.getGameStatus("votingTimeLeft"));
+            System.out.printf("\rVoting time is ongoing... (%ss left)", gameEngine.gameProperties().getProperty("votingTimeLeft"));
         }
 
         System.out.println();
         System.out.println(votingResultPhaseChannel.receive().getResult());
         System.out.println();
 
+        var roleReveals = roleRevealPhaseChannel.receive().getResult();
+
+        for (var reveal : roleReveals) {
+            System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
+        }
+
+        System.out.println();
+
         votingResultPhaseChannel.clear();
     }
 
-    private static void handleDiscussionPhase(PhaseChannel<MorningPhaseContext> morningPhaseChannel, GameEngine gameEngine)
-            throws InterruptedException {
+    private static void handleDiscussionPhase(
+        PhaseChannel<MorningPhaseContext> morningPhaseChannel,
+        GameEngine gameEngine
+    ) throws InterruptedException {
 
         System.out.println("Discussion Phase...");
         while (gameEngine.gameState() == GameState.DISCUSSION) {
             Thread.sleep(100);
-            System.out.printf("\rDiscussion time is ongoing... (%ss left)", gameEngine.getGameStatus("discussionTimeLeft"));
+            System.out.printf("\rDiscussion time is ongoing... (%ss left)", gameEngine.gameProperties().getProperty("discussionTimeLeft"));
         }
 
         System.out.println();
         System.out.println();
     }
 
-    private static void handleDayPhase(PhaseChannel<MorningPhaseContext> morningPhaseChannel, GameEngine gameEngine)
-            throws InterruptedException {
+    private static void handleDayPhase(
+        PhaseChannel<MorningPhaseContext> morningPhaseChannel, 
+        PhaseChannel<RoleRevealPhaseContext> roleRevealPhaseChannel,
+        GameEngine gameEngine
+    ) throws InterruptedException {
 
         System.out.println("Day Phase...");
 
         while (!morningPhaseChannel.hasSent() && gameEngine.gameState() == GameState.DAY) {
             Thread.sleep(10);
         }
-        
+    
         var nightKills = morningPhaseChannel.receive().getResult();
         if (nightKills.isEmpty()) {
             return;
@@ -135,12 +223,27 @@ public class Main {
         System.out.println("Players killed last night:");
         nightKills.forEach(System.out::println);
         System.out.println();
+
+        while (!roleRevealPhaseChannel.hasSent()) {
+            Thread.sleep(10);
+        }
+
+        var roleReveals = roleRevealPhaseChannel.receive().getResult();
+
+        for (var reveal : roleReveals) {
+            System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
+        }
+
+        System.out.println();
     }
 
-    private static void handleNightPhase(PhaseChannel<NightPhaseContext> nightPhaseChannel,
-            PhaseChannel<MorningPhaseContext> morningPhaseChannel, GameEngine gameEngine) throws InterruptedException {
+    private static void handleNightPhase(
+        PhaseChannel<NightPhaseContext> nightPhaseChannel,
+        PhaseChannel<MorningPhaseContext> morningPhaseChannel, 
+        GameEngine gameEngine
+    ) throws InterruptedException {
 
-        System.out.println("--- Night " + gameEngine.getGameStatus("nightCounter") + " ---");
+        System.out.println("--- Night " + gameEngine.gameProperties().getProperty("nightCounter") + " ---");
         System.out.println("Night Phase...");
 
         var nightContext = new NightPhaseContext();
@@ -149,7 +252,7 @@ public class Main {
 
         while (!morningPhaseChannel.hasSent() && gameEngine.gameState() == GameState.NIGHT) {
             Thread.sleep(100);
-            System.out.printf("\rPlayer doing actions... (%ss left)", gameEngine.getGameStatus("nightTimeLeft"));
+            System.out.printf("\rPlayer doing actions... (%ss left)", gameEngine.gameProperties().getProperty("nightTimeLeft"));
         }
         System.out.println();
         System.out.println();
@@ -174,6 +277,7 @@ public class Main {
 
             var alivePlayers = StreamUtils.filter(players, p -> p.state() == PlayerState.ALIVE);
             var randomTarget = getRandomPlayer(alivePlayers, player);
+            // var randomTarget = player;
                         
             var abilityName = switch (player.role().getRoleName().toLowerCase()) {
                 case "doctor" -> "heal";

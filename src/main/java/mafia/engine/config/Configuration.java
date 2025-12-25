@@ -1,7 +1,8 @@
-package mafia.engine.game.configuration;
+package mafia.engine.config;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -9,10 +10,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import mafia.engine.property.Properties;
+import mafia.engine.property.PropertyHolder;
 
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Configuration {
+public class Configuration implements PropertyHolder {
 
     @Getter @Setter
     private String configurationName, displayName;
@@ -50,17 +53,14 @@ public class Configuration {
     public Duration getDurationValue() {
         validateConvertion(valueType, ValueType.DURATION);
         var durationString = getStringValue();
-        var i = Integer.parseInt(getStringValue().replaceAll("[a-zA-Z]", ""));
-        if (durationString.endsWith("s")) {
-            return Duration.ofMillis(i * 1000);
-        }
-        if (durationString.endsWith("m")) {
-            return Duration.ofMinutes(i);
-        }
-        if (durationString.endsWith("h")) {
-            return Duration.ofHours(i);
-        }
-        throw new IllegalStateException("Unexpected duration: " + getStringValue());
+        var pattern = Pattern.compile("[h|m|s|ms]", Pattern.CASE_INSENSITIVE);
+        var i = Integer.parseInt(pattern.matcher(getStringValue()).replaceAll(""));
+        return switch (durationString.charAt(durationString.length() - 1)) {
+            case 's', 'S' -> Duration.ofSeconds(i);
+            case 'm', 'M' -> Duration.ofMinutes(i);
+            case 'h', 'H' -> Duration.ofHours(i);
+            default -> throw new IllegalStateException("Unexpected duration: " + getStringValue());
+        };
     }
 
     public String getStringValue() {
@@ -104,5 +104,16 @@ public class Configuration {
                 value,
                 configurationDescription.stream().collect(Collectors.joining("\n"))
             );
+    }
+
+    @Override
+    public Properties getProperties() {
+        return new Properties("configuration")
+            .addProperty("configurationName", configurationName)
+            .addProperty("displayName", displayName)
+            .addProperty("valueType", valueType)
+            .addProperty("value", value)
+            .addProperty("selectionValues", selectionValues)
+            .addProperty("configurationDescription", configurationDescription);
     }
 }

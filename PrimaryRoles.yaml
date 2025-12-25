@@ -1,17 +1,11 @@
 version: 0.0.1
 roles:
-
 - role: Civilian
   alignment: Good
   abilities: []
   roleDescription: Ordinary townspeople trying to survive. They rely on reading behavior, smart voting, and working together to uncover the Mafia.
   cardImagePath: "/assets/cards/Civilian.png"
   tokenImagePath: "/assets/tokens/Civilian.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-    ]
-  ]
 
 - role: Doctor
   alignment: Good
@@ -22,11 +16,6 @@ roles:
   roleDescription: A skilled healer who can save lives in the dead of night. Their choices can completely change the outcome of the game.
   cardImagePath: "/assets/cards/Doctor.png"
   tokenImagePath: "/assets/tokens/Doctor.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-    ]
-  ]
 
 - role: Detective
   alignment: Good
@@ -42,11 +31,6 @@ roles:
   roleDescription: The town's investigator. Uses clues, logic, and night checks to expose criminals. Must decide carefully when to reveal their information.
   cardImagePath: "/assets/cards/Detective.png"
   tokenImagePath: "/assets/tokens/Detective.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-    ]
-  ]
 
 - role: Psycho
   alignment: Neutral
@@ -57,11 +41,6 @@ roles:
   roleDescription: The mentally unstable civilian who is incredibly dangerous when provoked. Be careful on taking them down… cause they'll take you down with them too.
   cardImagePath: "/assets/cards/Psycho.png"
   tokenImagePath: "/assets/tokens/Psycho.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-    ]
-  ]
 
 - role: Officer
   alignment: Good
@@ -74,16 +53,11 @@ roles:
       conditions:
       - type: targetAlignmentIs
         value: Good
-      actions:
+      autoActions:
       - type: killSelf
   roleDescription: Just a guy trying his best to stop the evil from destroying the town. He shoots when he deems necessary and falls into shame and guilt when his gut instinct is wrong.
   cardImagePath: "/assets/cards/Officer.png"
   tokenImagePath: "/assets/tokens/Officer.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-    ]
-  ]
 
 - role: Killer
   alignment: Evil
@@ -94,12 +68,6 @@ roles:
   roleDescription: Commands the night with strategy and deception. Stays calm under pressure and blends in easily during discussions. A dangerous foe indeed for the poor townspeople.
   cardImagePath: "/assets/cards/Killer.png"
   tokenImagePath: "/assets/tokens/Killer.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-      onDeath  
-    ]
-  ]
 
 - role: Murderer
   alignment: Evil
@@ -117,12 +85,6 @@ roles:
   roleDescription: A character who tests the bounds of their role's secrecy, they could reveal themselves and risk elimination just for the sake of their personal mission.
   cardImagePath: "/assets/cards/Murderer.png"
   tokenImagePath: "/assets/tokens/Murderer.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-      onDeath
-    ]
-  ]
 
 - role: Godfather
   alignment: Evil
@@ -141,9 +103,3 @@ roles:
   roleDescription: Leader of the Mafia group, holds the most power in the evil side. Often the mastermind behind each attack.
   cardImagePath: "/assets/cards/Godfather.png"
   tokenImagePath: "/assets/tokens/Godfather.png"
-  actions : [
-    revealRole : [
-      soulmate.isDead
-      onDeath
-    ]
-  ]

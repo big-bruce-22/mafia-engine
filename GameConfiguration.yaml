@@ -4,19 +4,19 @@ configurations:
   - configurationName: nightTimeActionTimer
     displayName: Nighttime Action Timer
     valueType: duration
-    value: 2s
+    value: 1s
     configurationDescription:
     - How many seconds players may use abilities at night
   - configurationName: daytimeDiscussionTimer
     displayName: Daytime Discussion Timer
     valueType: duration
-    value: 2s
+    value: 1s
     configurationDescription:
     - How many seconds players may discuss during the day
   - configurationName: dayTimeVotingTimer
     displayName: Daytime Voting Timer
     valueType: duration
-    value: 2s
+    value: 1s
     configurationDescription:
     - How many seconds players may vote during the day
   - configurationName: coworker
@@ -28,7 +28,7 @@ configurations:
   - configurationName: anonymousVoting
     displayName: Anonymous Voting
     valueType: boolean
-    value: true
+    value: false
     configurationDescription:
     - Players' votes are hidden from others
   - configurationName: anonymousHeal
@@ -54,10 +54,15 @@ configurations:
     valueType: boolean
     value: false
     configurationDescription:
-    - 'On: A player survives only if Doctor heals match the number of kills on them
-      that night'
+    - 'On: A player survives only if Doctor heals match the number of kills on them that night'
     - 'Off: Only 1 Doctor heal is needed'
   goodRoleActions:
+  - configurationName: dependentDoctor
+    displayName: Dependent Doctor
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - Doctors must decide together on who to save
   - configurationName: doctorHealingCapacity
     displayName: Doctor Healing Capacity
     valueType: integer
@@ -65,23 +70,29 @@ configurations:
     configurationDescription:
     - How many heals the Doctor(s) may do per night
   - configurationName: limitedSelfHeal
-    displayName: Detective Investigations
-    valueType: integer
-    value: 1
-    configurationDescription:
-    - How many investigations the Detective(s) may do per night
-  - configurationName: detectiveInvestigations
-    displayName: Officer Firearm Limit
-    valueType: integer
-    value: 1
-    configurationDescription:
-    - How many successful shots the Officer(s) may have
-  - configurationName: officerFirearmLimit
     displayName: Limited Self Heal
     valueType: boolean
     value: false
     configurationDescription:
     - Doctors may only heal themselves once
+  - configurationName: detectiveInvestigations
+    displayName: Detective Investigations
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many investigations the Detective(s) may do per night
+  - configurationName: dependentDetective
+    displayName: Dependent Doctor
+    valueType: boolean
+    value: false
+    configurationDescription:
+    - Doctors must decide together on who to save
+  - configurationName: officerFirearmLimit
+    displayName: Officer Firearm Limit
+    valueType: integer
+    value: 1
+    configurationDescription:
+    - How many successful shots the Officer(s) may have
   evilRoleActions:
   - configurationName: unifiedNoOfKillings
     displayName: Unified No. Of Killings
@@ -120,7 +131,7 @@ configurations:
     - unlimited
     - limited
     configurationDescription:
-    - How many limited investigations the Godfather has
+    - How many investigations the Godfather has
   - configurationName: targetedInvestigations
     displayName: Targeted Investigations
     valueType: boolean

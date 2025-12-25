@@ -1,4 +1,4 @@
-package cli;
+package mafia.engine.config.loader;
 
 import java.nio.file.Path;
 
