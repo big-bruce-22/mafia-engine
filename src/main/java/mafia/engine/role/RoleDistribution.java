@@ -9,10 +9,16 @@ import mafia.engine.presets.Preset;
 
 public class RoleDistribution {
 
-    public static List<String> getDistribution(Preset preset, List<Role> availableRoles, int numberOfPlayers) {
+    public static List<String> getDistribution(Preset preset, List<Role> availableRoles, int numberOfPlayers, String roleType) {
         Map<String, Integer> roleDistribution = new HashMap<>();
 
-        for (var roles : preset.getPrimaryRoles()) {
+        var list = switch (roleType.toLowerCase()) {
+            case "primary" -> preset.getPrimaryRoles();
+            case "secondary" -> preset.getSecondaryRoles();
+            default -> throw new IllegalStateException("Unexpected role type: " + roleType);
+        };
+        
+        for (var roles : list) {
             var count = Integer.parseInt(String.valueOf(roles.get("players")));
             var roleName = String.valueOf(roles.get("role"));
             roleDistribution.put(roleName, count);    
@@ -26,10 +32,7 @@ public class RoleDistribution {
         }
 
         List<String> roles = new ArrayList<>();
-        for (var key : roleDistribution.keySet()) {
-            addToList(roles, roleDistribution, key);
-        }
-
+        roleDistribution.keySet().forEach(key -> addToList(roles, roleDistribution, key));
         return roles;
     }
 

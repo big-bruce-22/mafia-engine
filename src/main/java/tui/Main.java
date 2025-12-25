@@ -13,9 +13,6 @@ import mafia.engine.core.GameConfiguration;
 import mafia.engine.core.GameEngine;
 import mafia.engine.core.GameRules;
 import mafia.engine.core.GameState;
-import mafia.engine.expression.evaluator.Evaluator;
-import mafia.engine.expression.lexer.Lexer;
-import mafia.engine.expression.parser.Parser;
 import mafia.engine.game.phase.GameResultPhaseContext;
 import mafia.engine.game.phase.MorningPhaseContext;
 import mafia.engine.game.phase.NightPhaseContext;
@@ -27,7 +24,6 @@ import mafia.engine.game.vote.PlayerVote;
 import mafia.engine.player.Player;
 import mafia.engine.player.PlayerState;
 import mafia.engine.player.action.PlayerActionContext;
-import mafia.engine.role.DistributionEngine;
 import mafia.engine.role.Role;
 import mafia.engine.util.StreamUtils;
 
@@ -71,14 +67,16 @@ public class Main {
     // }
         
     public static void main(String[] args) throws Exception {
-        RoleConfig roleConfig = Loader.load("mafia-engine/PrimaryRoles.yaml", RoleConfig.class);
-        PresetsConfig presetsConfig = Loader.load("mafia-engine/Presets.yaml", PresetsConfig.class);
-        GameConfiguration gameConfig = Loader.load("mafia-engine/GameConfiguration.yaml", GameConfiguration.class);
-        GameRules gameRules  = Loader.load("mafia-engine/GameRules.yaml", GameRules.class);
+        var primaryRoleConfig = Loader.load("mafia-engine/PrimaryRoles.yaml", RoleConfig.class);
+        var secondaryRoleConfig = Loader.load("mafia-engine/SecondaryRoles.yaml", RoleConfig.class);
+        var presetsConfig = Loader.load("mafia-engine/Presets.yaml", PresetsConfig.class);
+        var gameConfig = Loader.load("mafia-engine/GameConfiguration.yaml", GameConfiguration.class);
+        var gameRules  = Loader.load("mafia-engine/GameRules.yaml", GameRules.class);
 
         var players = generatePlayers();
-        var roles = roleConfig.getRoles();
-        var preset = presetsConfig.getPresets().getFirst();
+        var primaryRoles = primaryRoleConfig.getRoles();
+        var secondaryRoles = secondaryRoleConfig.getRoles();
+        var preset = presetsConfig.getPresets().get(1);
 
         var nightPhaseChannel = new PhaseChannel<NightPhaseContext>();
         var morningPhaseChannel = new PhaseChannel<MorningPhaseContext>();
@@ -98,7 +96,8 @@ public class Main {
 
         var gameEngine = new GameEngine(
             players,
-            roles,
+            primaryRoles,
+            secondaryRoles,
             preset,
             gameRules
         ).setChannels(
@@ -131,7 +130,11 @@ public class Main {
         }
 
         for (var p : players) {
-            System.out.println(p.name() + " is " + p.role().getRoleName());
+            System.out.print(p.name() + " is " + p.role().getRoleName());
+            if (p.secondaryRole() != null) {
+                System.out.print(", " + p.secondaryRole().getRoleName());
+            }
+            System.out.println();
         }
 
         System.out.println();
@@ -180,7 +183,7 @@ public class Main {
         for (var reveal : roleReveals) {
             System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
         }
-
+        roleRevealPhaseChannel.clear();
         System.out.println();
 
         votingResultPhaseChannel.clear();
@@ -209,10 +212,10 @@ public class Main {
 
         System.out.println("Day Phase...");
 
-        while (!morningPhaseChannel.hasSent() && gameEngine.gameState() == GameState.DAY) {
+        while (!morningPhaseChannel.hasSent()) {
             Thread.sleep(10);
         }
-    
+        
         var nightKills = morningPhaseChannel.receive().getResult();
         if (nightKills.isEmpty()) {
             return;
@@ -229,12 +232,15 @@ public class Main {
         }
 
         var roleReveals = roleRevealPhaseChannel.receive().getResult();
+        roleRevealPhaseChannel.clear();
 
         for (var reveal : roleReveals) {
             System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
         }
 
-        System.out.println();
+        if (!roleReveals.isEmpty()) {
+            System.out.println();
+        }
     }
 
     private static void handleNightPhase(
@@ -278,12 +284,17 @@ public class Main {
             var alivePlayers = StreamUtils.filter(players, p -> p.state() == PlayerState.ALIVE);
             var randomTarget = getRandomPlayer(alivePlayers, player);
             // var randomTarget = player;
-                        
-            var abilityName = switch (player.role().getRoleName().toLowerCase()) {
+
+            var role = player.role().getRoleName().toLowerCase();
+            if (role.equalsIgnoreCase("psycho")) {
+                continue;
+            }
+
+            var abilityName = switch (role) {
                 case "doctor" -> "heal";
                 case "detective" -> "investigate";
                 case "killer" -> "nightKill";
-                default -> "";
+                default -> throw new IllegalStateException("Unexpected role: " + role);
             };
 
             var ability = getAbility(player.role(), abilityName);
@@ -314,11 +325,12 @@ public class Main {
             "Aez",
             "Xav",
             "Pat",
-            "Ruth",
             "Ricia",
+            "Ruth",
             "Pj",
             "Claire",
-            "Wilson"
+            "Wilson",
+            "Ralph"
         };
 
         return new ArrayList<>(Arrays.asList(names)
@@ -326,4 +338,39 @@ public class Main {
             .map(n -> new Player().name(n))
             .toList());
     }
+
+    private static final String[] classNames = {
+        "Ruth",
+        "Chasten",
+        "Wayne",
+        "Jayjay",
+        "Jahred",
+        "Arnold",
+        "Tristan",
+        "Patrick",
+        "Xavier",
+        "Phoebe",
+        "Mary",
+        "Mark",
+        "Jewel",
+        "Adelaine",
+        "Princess",
+        "Juan",
+        "Ralph",
+        "Ricia",
+        "Archangel",
+        "Warren",
+        "Michael",
+        "Marie",
+        "Aezekiel",
+        "Jhayden",
+        "John",
+        "Criztian",
+        "Carlos",
+        "Naomi",
+        "Jimwell",
+        "Wilson",
+        "Tristan",
+        "Jeremy"
+    };
 }

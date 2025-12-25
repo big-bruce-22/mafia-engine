@@ -33,7 +33,10 @@ presets:
   - role: Killer
     players: 3
     abilityLimitationPerRound: 2
-  secondaryRoles: []
+  secondaryRoles: 
+  - role: Soulmate
+    players: 2
+  
 - name: extreme
   minimumPlayers: 17
   maximumPlayers: -1

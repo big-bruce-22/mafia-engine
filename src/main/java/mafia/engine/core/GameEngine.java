@@ -42,7 +42,7 @@ public class GameEngine implements PropertyHolder {
     private List<Player> players;
     
     @NonNull
-    private List<Role> roles;
+    private List<Role> primaryRoles, secondaryRoles;
 
     @NonNull @Getter
     private GameConfiguration configuration;
@@ -70,18 +70,21 @@ public class GameEngine implements PropertyHolder {
     
     public GameEngine(
         @NonNull List<Player> players,
-        @NonNull List<Role> roles,
+        @NonNull List<Role> primaryRoles,
+        @NonNull List<Role> secondaryRoles,
         @NonNull Preset preset,
         @NonNull GameRules gameRules
     ) {
         this.players = players;
-        this.roles = roles;
+        this.primaryRoles = primaryRoles;
+        this.secondaryRoles = secondaryRoles;
         this.preset = preset;
         this.gameRules = gameRules;
 
         gameProperties.addProperties(Map.of(
             "players", players,
-            "roles", roles,
+            "primaryRoles", primaryRoles,
+            "secondaryRoles", secondaryRoles,
             "preset", preset
         ));
 
@@ -126,7 +129,8 @@ public class GameEngine implements PropertyHolder {
 
         gameState = GameState.LOADING;
 
-        distributionEngine.distributeRoles(preset, roles, players);
+        distributionEngine.distributeRoles(preset, players, primaryRoles, "primary");
+        distributionEngine.distributeRoles(preset, players, secondaryRoles, "secondary");
         
         gameState = GameState.NIGHT;
 
@@ -179,7 +183,7 @@ public class GameEngine implements PropertyHolder {
         var result = new VoteResult(votes, configuration);
         votingResultPhaseChannel.send(new VotingResultPhaseContext(result));
 
-        revealPlayerRoles(List.of(result.target()), GameState.VOTING);
+        revealPlayerprimaryRoles(List.of(result.target()), GameState.VOTING);
         
         concludeRound();
     }
@@ -212,7 +216,8 @@ public class GameEngine implements PropertyHolder {
                                 "general", 
                                 "anonymousHeal"
                             );
-
+        
+        var alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
         var killedThisNight = filterPlayer(p -> p.state() == PlayerState.KILLED);
         var healedThisNight = isAnonymousHeal ? List.<Player>of() : filterPlayer(p -> p.state() == PlayerState.SAVED);
 
@@ -228,12 +233,16 @@ public class GameEngine implements PropertyHolder {
         morningPhaseContext.setContexts(StreamUtils.combineLists(killedEvents, healedEvents));
         morningPhaseChannel.send(morningPhaseContext);
 
-        revealPlayerRoles(killedThisNight, GameState.DAY);
+        revealPlayerprimaryRoles(killedThisNight, GameState.DAY);
 
-        setState(GameState.DISCUSSION);
+        if (alivePlayers.size() < 3) {
+            concludeRound();
+        } else {
+            setState(GameState.DISCUSSION);
+        }
     }
 
-    private void revealPlayerRoles(List<Player> playersToReveal, GameState state) {
+    private void revealPlayerprimaryRoles(List<Player> playersToReveal, GameState state) {
         if (playersToReveal.isEmpty()) {
             return;
         }
@@ -248,10 +257,8 @@ public class GameEngine implements PropertyHolder {
             "secretVoteOut"
         );
 
-        RoleRevealPhaseContext roleRevealPhaseContext = new RoleRevealPhaseContext();
+        var roleRevealPhaseContext = new RoleRevealPhaseContext();
 
-        // System.out.println("secret roles: " + secretRoles);
-        // System.out.println("secretVoteOut: " + secretVoteOut);
         if (secretRoles && secretVoteOut) {
             roleRevealPhaseChannel.send(roleRevealPhaseContext);
             return;    
@@ -260,10 +267,8 @@ public class GameEngine implements PropertyHolder {
         if (!secretVoteOut) {
             for (var p : playersToReveal) {
                 for (var rule : gameRules.getRules("roleRevealConditions")) {
-                    // System.out.println("evaluating: " + rule + " for player: " + p.name());
                     try {
                         if ((Boolean) expressionEngine.evalaute(rule, p.getProperties()).result()) {
-                            // System.out.println("revealing: " + p.name() + " role: " + p.role().getRoleName());
                             roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role()));
                             break;
                         }
@@ -274,7 +279,6 @@ public class GameEngine implements PropertyHolder {
             }
         } else if (gameState == GameState.VOTING && !secretRoles) {
             var p = playersToReveal.getFirst();
-            // System.out.println("revealing: " + p.name() + " role: " + p.role().getRoleName());
             roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role()));
         }
         roleRevealPhaseChannel.send(roleRevealPhaseContext);
@@ -303,7 +307,7 @@ public class GameEngine implements PropertyHolder {
             gameState = GameState.NIGHT;
             var nightCounter = (int) gameProperties.getProperty("nightCounter");
             gameProperties.addProperty("nightCounter", nightCounter + 1);
-        }  else {
+        } else {
             var gameResult = new GameResult("Good wins");
             var gameResultContext = new GameResultPhaseContext(gameResult);
             gameResultPhaseChannel.send(gameResultContext);

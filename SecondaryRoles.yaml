@@ -1,0 +1,8 @@
+version: 0.0.1
+roles:
+- role: Soulmate
+  alignment: none
+  abilities: []
+  roleDescription: A pair of star crossed lovers who know nothing about the others’ role. Devastation and suicide follow when one of them is eliminated.
+  cardImagePath: "/assets/cards/Soulmate.png"
+  tokenImagePath: "/assets/tokens/Soulmate.png"

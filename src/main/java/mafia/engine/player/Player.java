@@ -21,7 +21,7 @@ public class Player implements PropertyHolder {
     private String name, alignment;
     
     @NonNull @Getter
-    private Role role;
+    private Role role, secondaryRole;
 
     @NonNull @Getter
     private volatile PlayerState state = PlayerState.ALIVE;
@@ -34,17 +34,11 @@ public class Player implements PropertyHolder {
     @Getter
     private Map<PlayerAction, Integer> attemptedActions = new HashMap<>();
 
-    public Player() {
-        // properties.addProperty("soulmate", null);
-    }
-
     @Getter
     private Properties properties = new Properties("player");
 
     public void incrementAttemptedAction(PlayerAction action) {
-        if (!attemptedActions.containsKey(action)) {
-            attemptedActions.put(action, 0);
-        }
+        attemptedActions.putIfAbsent(action, 0);
         attemptedActions.put(action, attemptedActions.get(action) + 1);
     }
 
@@ -65,6 +59,12 @@ public class Player implements PropertyHolder {
         properties.addProperty("role", role);
         return this;
     }
+    
+    public Player secondaryRole(Role secondaryRole) {
+        this.secondaryRole = secondaryRole;
+        properties.addProperty("secondaryRole", secondaryRole);
+        return this;
+    }
 
     public Player state(PlayerState state) {
         this.state = state;
@@ -79,9 +79,12 @@ public class Player implements PropertyHolder {
             alignment: %s
             state: %s
             role: %s
+            secondary role: %s
             attemptedActions: %s
             """.formatted(
-                name, alignment, state, role.getRoleName(),
+                name, alignment, 
+                state, role.getRoleName(), 
+                secondaryRole.getRoleName(),
                 attemptedActions.toString()
             );
     }
