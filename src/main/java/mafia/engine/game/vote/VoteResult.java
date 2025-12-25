@@ -33,11 +33,18 @@ public class VoteResult {
         }
 
         playerVotes.entrySet().forEach(e -> voteCount.put(e.getKey(), e.getValue().size()));
+        // fixed multiple result colliding to single result
+        var result = voteCount.entrySet().stream()
+                .collect(Collectors.groupingBy(
+                    Entry::getValue,
+                    Collectors.mapping(Entry::getKey, Collectors.toList())
+                ))
+                .entrySet().stream()
+                .max(Entry.comparingByKey())
+                .filter(e -> e.getValue().size() == 1)
+                .map(e -> Map.entry(e.getValue().get(0), e.getKey()));
 
-        target = voteCount.entrySet().stream()
-                .max(Entry.comparingByValue())
-                .get()
-                .getKey();
+        target = result.map(Entry::getKey).orElse(null);
         
         if (target != null) {
             target.state(PlayerState.DEAD);
@@ -49,6 +56,11 @@ public class VoteResult {
                                 ).getBooleanValue();
 
         if (!isAnonymousVoting) {
+            if (playerVotes.get(target) == null) {
+                message = "";
+                return;
+            }
+
             var players = StreamUtils.mapAndCollect(
                             playerVotes.get(target), 
                             Player::name, 
@@ -62,7 +74,7 @@ public class VoteResult {
 
     @Override
     public String toString() {
-        return target == null ? "No one was voted for." : 
+        return target == null ? "Tied. No one is excluded." : 
             "%s received %d vote/s. %s"
                 .formatted(target.name(), voteCount.get(target), message == null ? "" : message);
     }    

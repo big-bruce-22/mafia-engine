@@ -1,5 +1,9 @@
 package mafia.engine.core;
 
+import static mafia.engine.util.StreamUtils.combineLists;
+import static mafia.engine.util.StreamUtils.filter;
+import static mafia.engine.util.StreamUtils.mapToList;
+
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -30,7 +34,6 @@ import mafia.engine.role.DistributionEngine;
 import mafia.engine.role.Role;
 import mafia.engine.role.RoleReveal;
 import mafia.engine.rule.RuleEngine;
-import mafia.engine.util.StreamUtils;
 
 @Accessors(fluent = true)
 public class GameEngine implements PropertyHolder {
@@ -165,12 +168,12 @@ public class GameEngine implements PropertyHolder {
     private void handleVotingPhase(long votingDuration) {
         gameProperties.addProperty("votingTimeLeft", votingDuration);
         for (var i = votingDuration; i >= 0; i--) {
-            sleep(1000);
+            sleepInSeconds(1);
             gameProperties.addProperty("votingTimeLeft", i);
         }
 
         // buffer time
-        sleep(1000);
+        sleepInSeconds(1);
         
         if (!votingPhaseChannel.hasSent()) {
             gameProperties.addProperty("votingTimeLeft", 0);
@@ -183,15 +186,17 @@ public class GameEngine implements PropertyHolder {
         var result = new VoteResult(votes, configuration);
         votingResultPhaseChannel.send(new VotingResultPhaseContext(result));
 
-        revealPlayerprimaryRoles(List.of(result.target()), GameState.VOTING);
-        
+        if (result.target() != null) {
+            revealPlayerprimaryRoles(List.of(result.target()), GameState.VOTING);
+        }
+
         concludeRound();
     }
 
     private void handleDiscussionPhase(long discussionDuration) {
         gameProperties.addProperty("discussionTimeLeft", discussionDuration);
         for (var i = discussionDuration; i >= 0; i--) {
-            sleep(1000);
+            sleepInSeconds(1);
             gameProperties.addProperty("discussionTimeLeft", i);
         }
 
@@ -226,11 +231,11 @@ public class GameEngine implements PropertyHolder {
             healedThisNight.forEach(p -> p.state(PlayerState.ALIVE));
         }
 
-        var killedEvents = StreamUtils.mapToList(killedThisNight, p -> new NightEvent(PlayerState.KILLED, p));
+        var killedEvents = mapToList(killedThisNight, p -> new NightEvent(PlayerState.KILLED, p));
         var healedEvents = isAnonymousHeal ? List.<NightEvent>of() : 
-            StreamUtils.mapToList(healedThisNight, p -> new NightEvent(PlayerState.SAVED, p));
+            mapToList(healedThisNight, p -> new NightEvent(PlayerState.SAVED, p));
 
-        morningPhaseContext.setContexts(StreamUtils.combineLists(killedEvents, healedEvents));
+        morningPhaseContext.setContexts(combineLists(killedEvents, healedEvents));
         morningPhaseChannel.send(morningPhaseContext);
 
         revealPlayerprimaryRoles(killedThisNight, GameState.DAY);
@@ -287,7 +292,7 @@ public class GameEngine implements PropertyHolder {
     private void handleNightPhase(long nightDuration) {
         gameProperties.addProperty("nightTimeLeft", nightDuration);
         for (var i = nightDuration; i >= 0; i--) {
-            sleep(1000);
+            sleepInSeconds(1);
             gameProperties.addProperty("nightTimeLeft", i);
         }
         
@@ -325,7 +330,11 @@ public class GameEngine implements PropertyHolder {
     }
 
     private List<Player> filterPlayer(Predicate<Player> filter) {
-        return StreamUtils.filter(players, filter);
+        return filter(players, filter);
+    }
+
+    private void sleepInSeconds(int seconds) {
+        sleep(seconds * 1000);
     }
 
     private void sleep(int millis) {

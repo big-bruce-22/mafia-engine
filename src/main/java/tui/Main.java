@@ -178,13 +178,15 @@ public class Main {
         System.out.println(votingResultPhaseChannel.receive().getResult());
         System.out.println();
 
-        var roleReveals = roleRevealPhaseChannel.receive().getResult();
-
-        for (var reveal : roleReveals) {
-            System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
+        if (roleRevealPhaseChannel.receive() != null) {
+            var roleReveals = roleRevealPhaseChannel.receive().getResult();
+    
+            for (var reveal : roleReveals) {
+                System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
+            }
+            roleRevealPhaseChannel.clear();
+            System.out.println();
         }
-        roleRevealPhaseChannel.clear();
-        System.out.println();
 
         votingResultPhaseChannel.clear();
     }

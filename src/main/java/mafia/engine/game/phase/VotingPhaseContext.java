@@ -20,6 +20,5 @@ public class VotingPhaseContext implements PhaseContext<List<PlayerVote>> {
     @Override
     public List<PlayerVote> getResult() {
         return votes;   
-    }
-    
+    }    
 }
