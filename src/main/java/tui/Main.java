@@ -13,6 +13,9 @@ import mafia.engine.core.GameConfiguration;
 import mafia.engine.core.GameEngine;
 import mafia.engine.core.GameRules;
 import mafia.engine.core.GameState;
+import mafia.engine.expression.evaluator.Evaluator;
+import mafia.engine.expression.lexer.Lexer;
+import mafia.engine.expression.parser.Parser;
 import mafia.engine.game.phase.GameResultPhaseContext;
 import mafia.engine.game.phase.MorningPhaseContext;
 import mafia.engine.game.phase.NightPhaseContext;
@@ -24,6 +27,7 @@ import mafia.engine.game.vote.PlayerVote;
 import mafia.engine.player.Player;
 import mafia.engine.player.PlayerState;
 import mafia.engine.player.action.PlayerActionContext;
+import mafia.engine.role.DistributionEngine;
 import mafia.engine.role.Role;
 import mafia.engine.util.StreamUtils;
 
@@ -77,7 +81,7 @@ public class Main {
         var primaryRoles = primaryRoleConfig.getRoles();
         var secondaryRoles = secondaryRoleConfig.getRoles();
         var preset = presetsConfig.getPresets().get(1);
-
+    
         var nightPhaseChannel = new PhaseChannel<NightPhaseContext>();
         var morningPhaseChannel = new PhaseChannel<MorningPhaseContext>();
         var votingPhaseChannel = new PhaseChannel<VotingPhaseContext>();
@@ -85,13 +89,15 @@ public class Main {
         var gameResultPhaseChannel = new PhaseChannel<GameResultPhaseContext>();
         var roleRevealPhaseChannel = new PhaseChannel<RoleRevealPhaseContext>();
 
-        // DistributionEngine distributor = new DistributionEngine();
-        // distributor.distributeRoles(preset, roles, players);
+        DistributionEngine distributor = new DistributionEngine();
+        distributor.distributeRoles(preset, players, primaryRoles, "primary");
+        distributor.distributeRoles(preset, players, secondaryRoles, "secondary");
 
-        // var lexer = new Lexer();
-        // var parser = new Parser();
-        // var evaluator = new Evaluator();
-        // var parsed = parser.parse(lexer.tokenize("count(game.players, player.state is ALIVE and player.alignment is Good) + count(game.players, player.state is ALIVE and player.alignment is Neutral) < 2"));
+        var lexer = new Lexer();
+        var parser = new Parser();
+        var evaluator = new Evaluator();
+        var parsed = parser.parse(lexer.tokenize("player.soulmate.soulmate.soulmate.soulmate"));
+        // var parsed = parser.parse(lexer.tokenize("player.soulmate.state"));
         // var parsed = parser.parse(lexer.tokenize("player.alignment is Evil"));
 
         var gameEngine = new GameEngine(
@@ -109,18 +115,19 @@ public class Main {
             roleRevealPhaseChannel
         ).configure(gameConfig);
 
-        // for (var player : players) {
-        //     var evaluation = evaluator.evaluate(parsed, player.properties(), "player");
-        //     System.out.println("evaluated player " + player.name() + " as evil: " + evaluation.result());
-        // }
+        players.forEach(p -> p.state(PlayerState.ALIVE));
+        players.forEach(p -> System.out.println(p.name() + " assigned as " + p.role().getRoleName() + " / " + (p.secondaryRole() == null ? "" : p.secondaryRole().getRoleName())));
+        System.out.println();
 
-        // players.forEach(p -> p.state(PlayerState.ALIVE));
-        // var evaluation = evaluator.evaluate(parsed, gameEngine.gameProperties(), "game");
-        // System.out.println("no of good + no of neutral < no of evils " + evaluation.result());
+        for (var player : players) {
+            var evaluation = evaluator.evaluate(parsed, player.properties(), "player");
+            System.out.println("" + player.name() + " evaluation: " + evaluation.result());
+            System.out.println(evaluation.type() + " : " + evaluation.result().getClass().getSimpleName());
+        }
 
-        // if (true) {
-        //     return;
-        // }
+        if (true) {
+            return;
+        }
         
         new Thread(gameEngine::start).start();
 
@@ -187,7 +194,7 @@ public class Main {
                     System.out.print(" and " + reveal.secondaryRole().getRoleName() + "\n");
                 }
             }
-            
+
             roleRevealPhaseChannel.clear();
             System.out.println();
         }

@@ -6,6 +6,7 @@ import java.util.function.BiPredicate;
 
 import mafia.engine.expression.parser.Node;
 import mafia.engine.property.Properties;
+import mafia.engine.property.PropertyHolder;
 
 public class Evaluator {
     
@@ -19,7 +20,13 @@ public class Evaluator {
         var value = node.value();
         var type = node.type();
         return switch (node.type()) {
-            case IDENTIFIER, FUNCTION   -> new EvaluationResult(EvaluationType.LITERAL, value);
+            case IDENTIFIER             -> {
+                if (properties.containsProperty(value)) {
+                    yield inferValue(properties.getProperty(value));
+                }
+                yield new EvaluationResult(EvaluationType.LITERAL, value);
+            }
+            case FUNCTION               -> new EvaluationResult(EvaluationType.LITERAL, value);
             case NUMBER                 -> new EvaluationResult(EvaluationType.NUMBER, Float.valueOf(value));
             case CALL                   -> evaluateCall(node, properties, parentPropertyName);
             case DOT                    -> evaluateDot(node, properties, parentPropertyName);
@@ -53,12 +60,19 @@ public class Evaluator {
             throw new IllegalStateException("Left side of '.' must be an identifier");
         }
 
+        if (left.result() instanceof PropertyHolder ph) {
+            properties = ph.getProperties();
+        }
+
         var propertyNode = node.right();
         var propertyName = propertyNode.value();
 
         if (!properties.containsProperty(propertyName)) {
             throw new IllegalStateException(
-                "Property not found: " + propertyName + " for " + properties.propertyName()
+                "Property '%s' not found for %s".formatted(
+                    propertyName,
+                    properties.propertyName()
+                )
             );
         }
 
@@ -75,7 +89,7 @@ public class Evaluator {
             case Number n   -> new EvaluationResult(EvaluationType.NUMBER, n.floatValue());
             case Boolean b  -> new EvaluationResult(EvaluationType.BOOLEAN, b);
             case List<?> l  -> new EvaluationResult(EvaluationType.LIST, l);
-            default -> new EvaluationResult(EvaluationType.LITERAL, raw.toString());
+            default -> new EvaluationResult(EvaluationType.LITERAL, raw);
         };
     }
 

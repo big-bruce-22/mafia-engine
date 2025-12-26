@@ -11,5 +11,5 @@ rules:
   roleRevealConditions:
     - player.alignment is Evil
     - player.soulmate.state is DEAD or player.soulmate.state is KILLED
-    - player.state is KILLED and player.killer.role is not Psycho
-    - (player.state is KILLED or player.isVotedOut) and player.role is Psycho
+    - player.role is Psycho
+    - player.killer.role is Psycho

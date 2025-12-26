@@ -288,9 +288,12 @@ public class GameEngine implements PropertyHolder {
 
         if (!secretVoteOut) {
             for (var p : playersToReveal) {
+                System.out.print("revealing role for player: " + p.name() + " : ");
                 for (var rule : gameRules.getRules("roleRevealConditions")) {
                     try {
-                        if ((Boolean) expressionEngine.evalaute(rule, p.getProperties()).result()) {
+                        var b = (Boolean) expressionEngine.evalaute(rule, p.getProperties()).result();
+                        if (b) {
+                            System.out.print(b);
                             roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role(), p.secondaryRole()));
                             break;
                         }
@@ -298,6 +301,7 @@ public class GameEngine implements PropertyHolder {
                         continue;
                     }
                 }
+                System.out.println();
             }
         } else if (gameState == GameState.VOTING && !secretRoles) {
             var p = playersToReveal.getFirst();
