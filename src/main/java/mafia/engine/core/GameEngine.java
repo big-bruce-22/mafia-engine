@@ -4,6 +4,7 @@ import static mafia.engine.util.StreamUtils.combineLists;
 import static mafia.engine.util.StreamUtils.filter;
 import static mafia.engine.util.StreamUtils.mapToList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -187,7 +188,10 @@ public class GameEngine implements PropertyHolder {
         votingResultPhaseChannel.send(new VotingResultPhaseContext(result));
 
         if (result.target() != null) {
-            revealPlayerprimaryRoles(List.of(result.target()), GameState.VOTING);
+            var playersToReveal = new ArrayList<Player>();
+            playersToReveal.add(result.target());
+            playersToReveal.addAll(result.affectedByTarget());
+            revealPlayerprimaryRoles(playersToReveal, GameState.VOTING);
         }
 
         concludeRound();
@@ -225,6 +229,19 @@ public class GameEngine implements PropertyHolder {
         var alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
         var killedThisNight = filterPlayer(p -> p.state() == PlayerState.KILLED);
         var healedThisNight = isAnonymousHeal ? List.<Player>of() : filterPlayer(p -> p.state() == PlayerState.SAVED);
+
+        for (var it = killedThisNight.listIterator(); it.hasNext(); ) {
+            var p = it.next();
+            if (p.secondaryRole() != null) {
+                if (p.secondaryRole().getRoleName().equalsIgnoreCase("Soulmate")) {
+                    var soulmate = (Player) p.getProperties().getProperty("soulmate");
+                    soulmate.state(PlayerState.KILLED);
+                    it.add(soulmate);
+                }
+            }
+        }
+
+        killedThisNight = killedThisNight.stream().distinct().toList();
 
         killedThisNight.forEach(p -> p.state(PlayerState.DEAD));
         if (!isAnonymousHeal) {
@@ -274,7 +291,7 @@ public class GameEngine implements PropertyHolder {
                 for (var rule : gameRules.getRules("roleRevealConditions")) {
                     try {
                         if ((Boolean) expressionEngine.evalaute(rule, p.getProperties()).result()) {
-                            roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role()));
+                            roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role(), p.secondaryRole()));
                             break;
                         }
                     } catch (IllegalStateException _) {
@@ -284,7 +301,7 @@ public class GameEngine implements PropertyHolder {
             }
         } else if (gameState == GameState.VOTING && !secretRoles) {
             var p = playersToReveal.getFirst();
-            roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role()));
+            roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role(), p.secondaryRole()));
         }
         roleRevealPhaseChannel.send(roleRevealPhaseContext);
     }

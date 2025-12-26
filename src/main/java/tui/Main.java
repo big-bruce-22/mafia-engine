@@ -182,8 +182,12 @@ public class Main {
             var roleReveals = roleRevealPhaseChannel.receive().getResult();
     
             for (var reveal : roleReveals) {
-                System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
+                System.out.print(reveal.player().name() + " is a " + reveal.role().getRoleName());
+                if (reveal.secondaryRole() != null) {
+                    System.out.print(" and " + reveal.secondaryRole().getRoleName() + "\n");
+                }
             }
+            
             roleRevealPhaseChannel.clear();
             System.out.println();
         }
@@ -237,7 +241,10 @@ public class Main {
         roleRevealPhaseChannel.clear();
 
         for (var reveal : roleReveals) {
-            System.out.println(reveal.player().name() + " is a " + reveal.role().getRoleName());
+            System.out.print(reveal.player().name() + " is a " + reveal.role().getRoleName());
+            if (reveal.secondaryRole() != null) {
+                System.out.print(" and " + reveal.secondaryRole().getRoleName() + "\n");
+            }
         }
 
         if (!roleReveals.isEmpty()) {

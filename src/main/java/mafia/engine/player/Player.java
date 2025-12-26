@@ -21,7 +21,10 @@ public class Player implements PropertyHolder {
     private String name, alignment;
     
     @NonNull @Getter
-    private Role role, secondaryRole;
+    private Role role;
+
+    @NonNull @Getter
+    private Role secondaryRole;
 
     @NonNull @Getter
     private volatile PlayerState state = PlayerState.ALIVE;

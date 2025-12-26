@@ -24,6 +24,9 @@ public class VoteResult {
     private final Player target;
 
     @Getter
+    private final List<Player> affectedByTarget = new ArrayList<>();
+
+    @Getter
     private final String message;
 
     public VoteResult(List<PlayerVote> votes, GameConfiguration configuration) {
@@ -33,7 +36,7 @@ public class VoteResult {
         }
 
         playerVotes.entrySet().forEach(e -> voteCount.put(e.getKey(), e.getValue().size()));
-        // fixed multiple result colliding to single result
+        
         var result = voteCount.entrySet().stream()
                 .collect(Collectors.groupingBy(
                     Entry::getValue,
@@ -48,6 +51,14 @@ public class VoteResult {
         
         if (target != null) {
             target.state(PlayerState.DEAD);
+
+            if (target.secondaryRole() != null) {
+                if (target.secondaryRole().getRoleName().equalsIgnoreCase("Soulmate")) {
+                    var soulmate = ((Player) target.getProperties().getProperty("soulmate"));
+                    soulmate.state(PlayerState.DEAD);
+                    affectedByTarget.add(soulmate);
+                }
+            }
         }
 
         var isAnonymousVoting = configuration.getConfiguration(

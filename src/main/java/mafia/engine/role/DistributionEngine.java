@@ -53,5 +53,22 @@ public class DistributionEngine {
                 default -> throw new IllegalStateException("Unexpected role type: " + roleType);
             }
         }
+
+        var isSoulmateRole = roles.getFirst().getRoleName().equals("Soulmate");
+        if (isSoulmateRole) {
+            var soulMates = StreamUtils.filter(players, p -> p.secondaryRole() != null);
+            
+            if (soulMates.size() % 2 == 1) {
+                throw new IllegalStateException("Odd number of soulmates");
+            }
+
+            for (var it = soulMates.iterator(); it.hasNext(); ) {
+                var first = it.next();
+                var second = it.next();
+
+                first.getProperties().addProperty("soulmate", second);
+                second.getProperties().addProperty("soulmate", first);
+            }
+        }
     }
 }

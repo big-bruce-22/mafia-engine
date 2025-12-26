@@ -1,5 +1,6 @@
 package mafia.engine.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -280,7 +281,7 @@ public final class StreamUtils {
      * @see StreamUtils#filterStream
      */
     public static final <T> List<T> filter(Collection<T> col, Predicate<? super T> filter) {
-        return col.stream().filter(filter).toList();
+        return new ArrayList<>(col.stream().filter(filter).toList());
     }
 
     /**
