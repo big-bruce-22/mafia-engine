@@ -1,11 +1,11 @@
-package mafia.engine.game.phase;
+package mafia.engine.game.context;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import mafia.engine.role.RoleReveal;
 
-public class RoleRevealPhaseContext implements PhaseContext<List<RoleReveal>> {
+public class RoleRevealContext implements ChannelContext<List<RoleReveal>> {
 
     private final List<RoleReveal> reveals = new ArrayList<>();
 
@@ -14,7 +14,7 @@ public class RoleRevealPhaseContext implements PhaseContext<List<RoleReveal>> {
     }
 
     @Override
-    public List<RoleReveal> getResult() {
+    public List<RoleReveal> getContext() {
         return reveals;
     }
 }

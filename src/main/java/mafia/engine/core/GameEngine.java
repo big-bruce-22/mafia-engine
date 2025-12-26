@@ -16,15 +16,16 @@ import lombok.experimental.Accessors;
 
 import mafia.engine.ability.AbilityEngine;
 import mafia.engine.expression.ExpressionEngine;
+import mafia.engine.game.channel.Channel;
+import mafia.engine.game.channel.prompt.Prompt;
+import mafia.engine.game.channel.prompt.PromptResponse;
+import mafia.engine.game.context.GameResultContext;
+import mafia.engine.game.context.MorningContext;
+import mafia.engine.game.context.NightContext;
+import mafia.engine.game.context.RoleRevealContext;
+import mafia.engine.game.context.VotingContext;
+import mafia.engine.game.context.VotingResultContext;
 import mafia.engine.game.event.NightEvent;
-import mafia.engine.game.phase.GameResultPhaseContext;
-import mafia.engine.game.phase.MorningPhaseContext;
-import mafia.engine.game.phase.NightPhaseContext;
-import mafia.engine.game.phase.PhaseChannel;
-import mafia.engine.game.phase.RoleRevealPhaseContext;
-import mafia.engine.game.phase.VotingPhaseContext;
-import mafia.engine.game.phase.VotingResultPhaseContext;
-import mafia.engine.game.vote.VoteResult;
 import mafia.engine.player.Player;
 import mafia.engine.player.PlayerEngine;
 import mafia.engine.player.PlayerState;
@@ -35,6 +36,7 @@ import mafia.engine.role.DistributionEngine;
 import mafia.engine.role.Role;
 import mafia.engine.role.RoleReveal;
 import mafia.engine.rule.RuleEngine;
+import mafia.engine.vote.VoteResult;
 
 @Accessors(fluent = true)
 public class GameEngine implements PropertyHolder {
@@ -59,12 +61,14 @@ public class GameEngine implements PropertyHolder {
 
     private final GameRules gameRules;
 
-    private PhaseChannel<NightPhaseContext> nightPhaseChannel;
-    private PhaseChannel<MorningPhaseContext> morningPhaseChannel;
-    private PhaseChannel<VotingPhaseContext> votingPhaseChannel;
-    private PhaseChannel<VotingResultPhaseContext> votingResultPhaseChannel;
-    private PhaseChannel<GameResultPhaseContext> gameResultPhaseChannel;
-    private PhaseChannel<RoleRevealPhaseContext> roleRevealPhaseChannel;
+    private Channel<NightContext> nightChannel;
+    private Channel<MorningContext> morningChannel;
+    private Channel<VotingContext> votingChannel;
+    private Channel<VotingResultContext> votingResultChannel;
+    private Channel<GameResultContext> gameResultChannel;
+    private Channel<RoleRevealContext> roleRevealChannel;
+    private Channel<Prompt> promptChannel;
+    private Channel<PromptResponse> promptResponseChannel;
 
     private PlayerEngine playerEngine = new PlayerEngine();
     private RuleEngine ruleEngine = new RuleEngine();
@@ -104,19 +108,19 @@ public class GameEngine implements PropertyHolder {
     }
 
     public GameEngine setChannels(
-        PhaseChannel<NightPhaseContext> nightPhaseChannel,
-        PhaseChannel<MorningPhaseContext> morningPhaseChannel,
-        PhaseChannel<VotingPhaseContext> votingPhaseChannel,
-        PhaseChannel<VotingResultPhaseContext> votingResultPhaseChannel,
-        PhaseChannel<GameResultPhaseContext> gameResultPhaseChannel,
-        PhaseChannel<RoleRevealPhaseContext> roleRevealPhaseChannel
+        Channel<NightContext> nightChannel,
+        Channel<MorningContext> morningChannel,
+        Channel<VotingContext> votingChannel,
+        Channel<VotingResultContext> votingResultChannel,
+        Channel<GameResultContext> gameResultChannel,
+        Channel<RoleRevealContext> roleRevealChannel
     ) {
-        this.nightPhaseChannel = nightPhaseChannel;
-        this.morningPhaseChannel = morningPhaseChannel;
-        this.votingPhaseChannel = votingPhaseChannel;
-        this.votingResultPhaseChannel = votingResultPhaseChannel;
-        this.gameResultPhaseChannel = gameResultPhaseChannel;
-        this.roleRevealPhaseChannel = roleRevealPhaseChannel;
+        this.nightChannel = nightChannel;
+        this.morningChannel = morningChannel;
+        this.votingChannel = votingChannel;
+        this.votingResultChannel = votingResultChannel;
+        this.gameResultChannel = gameResultChannel;
+        this.roleRevealChannel = roleRevealChannel;
         return this;
     }
     
@@ -132,7 +136,6 @@ public class GameEngine implements PropertyHolder {
         gameProperties.addProperty("votingTimeLeft", durations.get("dayTimeVotingTimer"));
 
         gameState = GameState.LOADING;
-
         distributionEngine.distributeRoles(preset, players, primaryRoles, "primary");
         distributionEngine.distributeRoles(preset, players, secondaryRoles, "secondary");
         
@@ -176,16 +179,16 @@ public class GameEngine implements PropertyHolder {
         // buffer time
         sleepInSeconds(1);
         
-        if (!votingPhaseChannel.hasSent()) {
+        if (!votingChannel.hasSent()) {
             gameProperties.addProperty("votingTimeLeft", 0);
             return;
         }
 
-        var votes = votingPhaseChannel.receive().getVotes();
-        votingPhaseChannel.clear();
+        var votes = votingChannel.receive().getVotes();
+        votingChannel.clear();
 
         var result = new VoteResult(votes, configuration);
-        votingResultPhaseChannel.send(new VotingResultPhaseContext(result));
+        votingResultChannel.send(new VotingResultContext(result));
 
         if (result.target() != null) {
             var playersToReveal = new ArrayList<Player>();
@@ -209,16 +212,16 @@ public class GameEngine implements PropertyHolder {
 
     @SuppressWarnings("unchecked")
     private void handleDayPhase() {
-        var contexts = nightPhaseChannel.receive().getContexts();
+        var contexts = nightChannel.receive().getContext();
 
-        var morningPhaseContext = new MorningPhaseContext();
+        var morningPhaseContext = new MorningContext();
         if (contexts.isEmpty()) {
-            nightPhaseChannel.clear();
-            morningPhaseChannel.send(morningPhaseContext);
+            nightChannel.clear();
+            morningChannel.send(morningPhaseContext);
             return;
         }
 
-        nightPhaseChannel.clear();
+        nightChannel.clear();
         playerEngine.updatePlayersState(contexts, players, configuration);
 
         var isAnonymousHeal = configuration.getBooleanConfiguration(
@@ -253,7 +256,7 @@ public class GameEngine implements PropertyHolder {
             mapToList(healedThisNight, p -> new NightEvent(PlayerState.SAVED, p));
 
         morningPhaseContext.setContexts(combineLists(killedEvents, healedEvents));
-        morningPhaseChannel.send(morningPhaseContext);
+        morningChannel.send(morningPhaseContext);
 
         revealPlayerprimaryRoles(killedThisNight, GameState.DAY);
 
@@ -279,21 +282,19 @@ public class GameEngine implements PropertyHolder {
             "secretVoteOut"
         );
 
-        var roleRevealPhaseContext = new RoleRevealPhaseContext();
+        var roleRevealPhaseContext = new RoleRevealContext();
 
         if (secretRoles && secretVoteOut) {
-            roleRevealPhaseChannel.send(roleRevealPhaseContext);
+            roleRevealChannel.send(roleRevealPhaseContext);
             return;    
         }
 
         if (!secretVoteOut) {
             for (var p : playersToReveal) {
-                System.out.print("revealing role for player: " + p.name() + " : ");
                 for (var rule : gameRules.getRules("roleRevealConditions")) {
                     try {
                         var b = (Boolean) expressionEngine.evalaute(rule, p.getProperties()).result();
                         if (b) {
-                            System.out.print(b);
                             roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role(), p.secondaryRole()));
                             break;
                         }
@@ -301,13 +302,12 @@ public class GameEngine implements PropertyHolder {
                         continue;
                     }
                 }
-                System.out.println();
             }
         } else if (gameState == GameState.VOTING && !secretRoles) {
             var p = playersToReveal.getFirst();
             roleRevealPhaseContext.addReveal(new RoleReveal(p, p.role(), p.secondaryRole()));
         }
-        roleRevealPhaseChannel.send(roleRevealPhaseContext);
+        roleRevealChannel.send(roleRevealPhaseContext);
     }
 
     private void handleNightPhase(long nightDuration) {
@@ -326,8 +326,8 @@ public class GameEngine implements PropertyHolder {
 
         if (evilWin) {
             var gameResult = new GameResult("Evil wins");
-            var gameResultContext = new GameResultPhaseContext(gameResult);
-            gameResultPhaseChannel.send(gameResultContext);
+            var gameResultContext = new GameResultContext(gameResult);
+            gameResultChannel.send(gameResultContext);
             gameState = GameState.ENDED;            
         } else if (continueRound) {
             gameState = GameState.NIGHT;
@@ -335,8 +335,8 @@ public class GameEngine implements PropertyHolder {
             gameProperties.addProperty("nightCounter", nightCounter + 1);
         } else {
             var gameResult = new GameResult("Good wins");
-            var gameResultContext = new GameResultPhaseContext(gameResult);
-            gameResultPhaseChannel.send(gameResultContext);
+            var gameResultContext = new GameResultContext(gameResult);
+            gameResultChannel.send(gameResultContext);
             gameState = GameState.ENDED;
         }
     }

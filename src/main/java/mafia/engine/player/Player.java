@@ -84,7 +84,7 @@ public class Player implements PropertyHolder {
             """.formatted(
                 name, alignment, 
                 state, role.getRoleName(), 
-                secondaryRole.getRoleName(),
+                secondaryRole == null ? "" : secondaryRole.getRoleName(),
                 attemptedActions.toString()
             );
     }

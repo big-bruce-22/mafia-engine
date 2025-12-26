@@ -1,15 +1,15 @@
-package mafia.engine.game.phase;
+package mafia.engine.game.context;
 
 import lombok.RequiredArgsConstructor;
 import mafia.engine.core.GameResult;
 
 @RequiredArgsConstructor
-public class GameResultPhaseContext implements PhaseContext<GameResult> {
+public class GameResultContext implements ChannelContext<GameResult> {
 
     private final GameResult gameResult;
 
     @Override
-    public GameResult getResult() {
+    public GameResult getContext() {
         return gameResult;
     }
     

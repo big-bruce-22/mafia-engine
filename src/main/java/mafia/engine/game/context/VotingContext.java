@@ -1,4 +1,4 @@
-package mafia.engine.game.phase;
+package mafia.engine.game.context;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,9 +6,9 @@ import java.util.List;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
-import mafia.engine.game.vote.PlayerVote;
+import mafia.engine.vote.PlayerVote;
 
-public class VotingPhaseContext implements PhaseContext<List<PlayerVote>> {
+public class VotingContext implements ChannelContext<List<PlayerVote>> {
     
     @NonNull @Setter @Getter
     private List<PlayerVote> votes = new ArrayList<>();
@@ -18,7 +18,7 @@ public class VotingPhaseContext implements PhaseContext<List<PlayerVote>> {
     }
 
     @Override
-    public List<PlayerVote> getResult() {
+    public List<PlayerVote> getContext() {
         return votes;   
     }    
 }

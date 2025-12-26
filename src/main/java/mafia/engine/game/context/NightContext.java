@@ -1,15 +1,14 @@
-package mafia.engine.game.phase;
+package mafia.engine.game.context;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import lombok.Getter;
 import lombok.Setter;
 import mafia.engine.player.action.PlayerActionContext;
 
-public class NightPhaseContext implements PhaseContext<Void> {
+public class NightContext implements ChannelContext<List<PlayerActionContext>> {
 
-    @Getter @Setter
+    @Setter
     private List<PlayerActionContext> contexts = new ArrayList<>();
 
     public void addContext(PlayerActionContext ctx) {
@@ -17,8 +16,7 @@ public class NightPhaseContext implements PhaseContext<Void> {
     }
 
     @Override
-    public Void getResult() {
-        return null;
+    public List<PlayerActionContext> getContext() {
+        return contexts;
     }
-    
 }

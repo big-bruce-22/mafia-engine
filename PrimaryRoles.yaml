@@ -37,7 +37,9 @@ roles:
   abilities:
   - ability: takedown
     abilityDescription: Takes someone down with them when killed or voted out
-    activate: onDeath
+    trigger:
+      - votedOut
+      - killed
   roleDescription: The mentally unstable civilian who is incredibly dangerous when provoked. Be careful on taking them down… cause they'll take you down with them too.
   cardImagePath: "/assets/cards/Psycho.png"
   tokenImagePath: "/assets/tokens/Psycho.png"
@@ -80,8 +82,8 @@ roles:
     required: false
     condition:
     - votingPhaseBegun
-    - players.alive > 3
-    - players.alignment[evil] != 1
+    - count(players, player.state is ALIVE).size > 1
+    - count(players, player.alignment is Evil) != 1
   roleDescription: A character who tests the bounds of their role's secrecy, they could reveal themselves and risk elimination just for the sake of their personal mission.
   cardImagePath: "/assets/cards/Murderer.png"
   tokenImagePath: "/assets/tokens/Murderer.png"

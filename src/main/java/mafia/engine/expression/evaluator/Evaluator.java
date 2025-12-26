@@ -89,7 +89,8 @@ public class Evaluator {
             case Number n   -> new EvaluationResult(EvaluationType.NUMBER, n.floatValue());
             case Boolean b  -> new EvaluationResult(EvaluationType.BOOLEAN, b);
             case List<?> l  -> new EvaluationResult(EvaluationType.LIST, l);
-            default -> new EvaluationResult(EvaluationType.LITERAL, raw);
+            case String s   -> new EvaluationResult(EvaluationType.LITERAL, s);
+            default         -> new EvaluationResult(EvaluationType.LITERAL, raw);
         };
     }
 
@@ -240,8 +241,8 @@ public class Evaluator {
                     .map(String::trim)
                     .anyMatch(v -> v.equals(left.result().toString()));
             }
-            case "is"       ->   left.type() == right.type() && left.result().equals(right.result());
-            case "is not"   -> !(left.type() == right.type() && left.result().equals(right.result()));
+            case "is"       ->   left.type() == right.type() && left.result().toString().equals(right.result().toString());
+            case "is not"   -> !(left.type() == right.type() && left.result().toString().equals(right.result().toString()));
             default -> throw new IllegalStateException("Unexpected keyword: " + value);
         };
         return new EvaluationResult(EvaluationType.BOOLEAN, b);

@@ -1,4 +1,4 @@
-package mafia.engine.game.vote;
+package mafia.engine.vote;
 
 import java.util.ArrayList;
 import java.util.HashMap;

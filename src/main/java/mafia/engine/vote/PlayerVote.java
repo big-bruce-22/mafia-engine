@@ -1,9 +1,10 @@
-package mafia.engine.game.vote;
+package mafia.engine.vote;
 
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+
 import mafia.engine.player.Player;
 
 @RequiredArgsConstructor
