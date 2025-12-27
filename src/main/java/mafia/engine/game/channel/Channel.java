@@ -8,5 +8,5 @@ public interface Channel<T> {
 
     boolean hasSent();
 
-    void clear();
+    void clear();   
 }

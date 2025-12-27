@@ -21,8 +21,41 @@ public class FunctionsEvaluator {
 
         return switch (functionName) {
             case "count" -> count(args, properties);
+            case "filter" -> filter(args, properties);
             default -> throw new IllegalArgumentException("Unknown function: " + functionName);
         };
+    }
+
+    private Collection<?> filter(Node[] args, Properties properties) {
+        if (args.length != 2) {
+            throw new IllegalArgumentException("filter() expects 2 arguments: list, condition");
+        }
+
+        Object listObj = evaluator.evaluate(args[0], properties, null).result();
+
+        if (!(listObj instanceof Collection<?> list)) {
+            throw new IllegalArgumentException(
+                "First argument of filter() must be a collection, instead got " + listObj.getClass()
+            );
+        }
+
+        Node conditionNode = args[1];
+        Collection<Object> result = new java.util.ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof PropertyHolder p) {
+                Properties itemProps = p.getProperties();
+                var name = itemProps.propertyName();
+                Object condResult = evaluator.evaluate(conditionNode, itemProps, name).result();
+                if (condResult instanceof Boolean b && b) {
+                    result.add(item);
+                }
+            } else {
+                throw new IllegalStateException(
+                    "item " + item + " of type " + item.getClass() + "  does not contain any properties"
+                );
+            }
+        }
+        return result;
     }
 
     private int count(Node[] args, Properties properties) {

@@ -4,7 +4,6 @@ import java.util.List;
 
 import mafia.engine.ability.AbilityEngine;
 import mafia.engine.core.GameConfiguration;
-import mafia.engine.game.event.GameEvent;
 import mafia.engine.player.action.PlayerActionContext;
 import mafia.engine.player.action.PlayerActionResult;
 import mafia.engine.player.action.PlayerActionResultType;
@@ -18,7 +17,7 @@ public class PlayerEngine {
 
     public void updatePlayersState(List<PlayerActionContext> contexts, List<Player> players, GameConfiguration configuration) {
         for (var ctx : contexts) {
-            ruleEngine.process(GameEvent.BEFORE_ABILITY, ctx);
+            ruleEngine.process("before", ctx);
 
             if (ctx.cancelled()) {
                 continue;
@@ -30,7 +29,7 @@ public class PlayerEngine {
             ctx.actor().playerActionResults().add(result);
             ctx.playerActionResult(result);
 
-            ruleEngine.process(GameEvent.AFTER_ABILITY, ctx);
+            ruleEngine.process("after", ctx);
         }
 
         for (var player : players) {
