@@ -4,10 +4,8 @@ public enum GameState {
     WAITING,
     LOADING,
     INITIALIZING,
-    START,
-    DISCUSSION,
-    VOTING,
-    NIGHT,
-    DAY,
+    STARTING,
+    PAUSED,
+    PLAYING,    
     ENDED
 }

@@ -1,16 +1,7 @@
 package mafia.engine.vote;
 
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
-
 import mafia.engine.player.Player;
 
-@RequiredArgsConstructor
-@Accessors(fluent = true)
-public class PlayerVote {
+public record PlayerVote(Player player, Player target) {
 
-    @NonNull @Getter
-    private final Player player, target;    
 }

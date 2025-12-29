@@ -37,9 +37,7 @@ roles:
   abilities:
   - ability: takedown
     abilityDescription: Takes someone down with them when killed or voted out
-    trigger:
-      - votedOut
-      - killed
+    trigger: player.votedOut or player.killed
   roleDescription: The mentally unstable civilian who is incredibly dangerous when provoked. Be careful on taking them down… cause they'll take you down with them too.
   cardImagePath: "/assets/cards/Psycho.png"
   tokenImagePath: "/assets/tokens/Psycho.png"
@@ -50,13 +48,10 @@ roles:
   - ability: nightKill
     abilityDescription: Shoot an evil
     required: false
-    rules:
-    - event: afterKill
-      conditions:
-      - type: targetAlignmentIs
-        value: Good
-      autoActions:
-      - type: killSelf
+  - ability: killSelf
+    required: false
+    trigger: player.killed.alignment is Good
+    
   roleDescription: Just a guy trying his best to stop the evil from destroying the town. He shoots when he deems necessary and falls into shame and guilt when his gut instinct is wrong.
   cardImagePath: "/assets/cards/Officer.png"
   tokenImagePath: "/assets/tokens/Officer.png"

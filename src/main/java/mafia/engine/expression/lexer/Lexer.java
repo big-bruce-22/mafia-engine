@@ -21,7 +21,7 @@ public class Lexer {
     private static final Pattern KEYWORD = Pattern.compile("\\b(is in|is not|is)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern FUNCTIONS;
     
-    private static final String[] functionNames = {"count"};
+    private static final String[] functionNames = {"count", "filter", "contains"};
 
     static {
         String s = Arrays.stream(functionNames).collect(Collectors.joining("|"));

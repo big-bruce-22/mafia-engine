@@ -46,6 +46,7 @@ public class Evaluator {
 
         return switch (result) {
             case Number _ -> new EvaluationResult(EvaluationType.NUMBER, result);
+            case List<?> _ -> new EvaluationResult(EvaluationType.LIST, result);
             // default -> new EvaluationResult(EvaluationType.ANY, result);
             default -> throw new IllegalStateException(
                 "Unexpected return type for call " + callee.value() + " : " + result.getClass()
@@ -56,7 +57,7 @@ public class Evaluator {
     private EvaluationResult evaluateDot(Node node, Properties properties, String parentPropertyName) {
         var left = evaluate(node.left(), properties, parentPropertyName);
 
-        if (left.type() != EvaluationType.LITERAL) {
+        if (left.type() != EvaluationType.LIST && left.type() != EvaluationType.LITERAL) {
             throw new IllegalStateException("Left side of '.' must be an identifier");
         }
 
@@ -66,6 +67,14 @@ public class Evaluator {
 
         var propertyNode = node.right();
         var propertyName = propertyNode.value();
+        
+        if (left.type() == EvaluationType.LIST) {
+            if (!propertyName.equals("size")) {
+                throw new IllegalStateException("Only 'size' property is supported for lists");
+            }
+            var list = (List<?>) left.result();
+            return new EvaluationResult(EvaluationType.NUMBER, Float.valueOf(list.size()));
+        }
 
         if (!properties.containsProperty(propertyName)) {
             throw new IllegalStateException(
@@ -89,7 +98,9 @@ public class Evaluator {
             case Number n   -> new EvaluationResult(EvaluationType.NUMBER, n.floatValue());
             case Boolean b  -> new EvaluationResult(EvaluationType.BOOLEAN, b);
             case List<?> l  -> new EvaluationResult(EvaluationType.LIST, l);
-            case String s   -> new EvaluationResult(EvaluationType.LITERAL, s);
+            case String s   -> s.equalsIgnoreCase("true") ? new EvaluationResult(EvaluationType.BOOLEAN, true)
+                                : s.equalsIgnoreCase("false") ? new EvaluationResult(EvaluationType.BOOLEAN, false)
+                                : new EvaluationResult(EvaluationType.LITERAL, s);
             default         -> new EvaluationResult(EvaluationType.LITERAL, raw);
         };
     }

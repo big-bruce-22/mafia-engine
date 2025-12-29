@@ -1,6 +1,4 @@
 package mafia.engine.core;
 
-public record GameResult(String result) {
-
-    
+public record GameResult(String result) {   
 }

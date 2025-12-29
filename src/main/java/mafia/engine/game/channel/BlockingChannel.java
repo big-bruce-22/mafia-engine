@@ -29,6 +29,10 @@ public class BlockingChannel<T> implements Channel<T> {
     public boolean hasSent() {
         return !queue.isEmpty();
     }
+    
+    public int size() {
+        return queue.size();
+    }
 
     @Override
     public void clear() {

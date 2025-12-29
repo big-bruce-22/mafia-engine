@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -36,6 +37,15 @@ public class Player implements PropertyHolder {
 
     @Getter
     private Properties properties = new Properties("player");
+
+    @Getter
+    private final UUID PLAYER_ID = UUID.randomUUID();
+
+    public Player() {
+        properties.addProperty("votedOut", false);
+        properties.addProperty("killed", false);
+        properties.addProperty("killer", new ArrayList<Player>());
+    }
 
     public void incrementAttemptedAction(PlayerAction action) {
         attemptedActions.putIfAbsent(action, 0);

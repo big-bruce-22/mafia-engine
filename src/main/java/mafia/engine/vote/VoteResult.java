@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import lombok.Getter;
 import lombok.experimental.Accessors;
+
 import mafia.engine.core.GameConfiguration;
 import mafia.engine.player.Player;
 import mafia.engine.player.PlayerState;
@@ -51,12 +52,15 @@ public class VoteResult {
         
         if (target != null) {
             target.state(PlayerState.DEAD);
-
+            target.properties().addProperty("votedOut", true);
+            
             if (target.secondaryRole() != null) {
                 if (target.secondaryRole().getRoleName().equalsIgnoreCase("Soulmate")) {
                     var soulmate = ((Player) target.getProperties().getProperty("soulmate"));
                     soulmate.state(PlayerState.DEAD);
                     affectedByTarget.add(soulmate);
+                    soulmate.properties().addProperty("votedOut", true);
+                    soulmate.properties().addProperty("killed", true);
                 }
             }
         }
