@@ -3,6 +3,7 @@ package mafia.engine.player;
 public enum PlayerAction {
     HEAL,
     KILL,
+    TAKEDOWN,
     INVESTIGATE;
 
     public static PlayerAction parse(String s) {
@@ -16,6 +17,9 @@ public enum PlayerAction {
         }
         if (s.contains("investigate")) {
             return INVESTIGATE;
+        }
+        if (s.contains("takedown")) {
+            return TAKEDOWN;
         }
         throw new IllegalStateException("Unexpected action: " + s);
     }

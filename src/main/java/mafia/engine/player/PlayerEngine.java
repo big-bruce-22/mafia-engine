@@ -1,5 +1,6 @@
 package mafia.engine.player;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import mafia.engine.ability.AbilityEngine;
@@ -15,6 +16,7 @@ public class PlayerEngine {
     private AbilityEngine abilityEngine = new AbilityEngine();
     private RuleEngine ruleEngine = new RuleEngine();
 
+    @SuppressWarnings("unchecked")
     public void updatePlayersState(List<PlayerActionContext> contexts, List<Player> players, GameConfiguration configuration) {
         for (var ctx : contexts) {
             ruleEngine.process("before", ctx);
@@ -22,6 +24,23 @@ public class PlayerEngine {
             if (ctx.cancelled()) {
                 continue;
             }
+
+            var abilityName = ctx.ability().name();
+            switch (abilityName.toLowerCase()) {
+                case "nightkill", "daykill" -> {
+                    var targetProperties = ctx.target().properties();
+                    var actorProperties = ctx.actor().properties();
+                    if (targetProperties.getProperty("killer") == null) {
+                        targetProperties.addProperty("killer", new ArrayList<Player>());
+                    }
+                    ((List<Player>) targetProperties.getProperty("killer")).add(ctx.actor());
+        
+                    actorProperties.addProperty("killed", ctx.target());
+                }
+                case "takedown" -> 
+                    ctx.target().properties().addProperty("takendown", true);
+                default -> {}
+            }            
 
             abilityEngine.registerAction(ctx);
             var result = new PlayerActionResult(ctx);
@@ -34,10 +53,12 @@ public class PlayerEngine {
 
         for (var player : players) {
             var attemptedKills = player.attemptedActions().get(PlayerAction.KILL);
+            var attemptedTakeDowns = player.attemptedActions().get(PlayerAction.TAKEDOWN);
             var attemptedHeals = player.attemptedActions().get(PlayerAction.HEAL);
 
             attemptedKills = attemptedKills == null ? 0 : attemptedKills;
             attemptedHeals = attemptedHeals == null ? 0 : attemptedHeals;
+            attemptedTakeDowns = attemptedTakeDowns == null ? 0 : attemptedTakeDowns;
 
             if (player.state() != PlayerState.ALIVE) {
                 continue;
@@ -55,11 +76,14 @@ public class PlayerEngine {
             var isKilled = isOverKill 
                             ? attemptedHeals != attemptedKills 
                             : attemptedHeals < 1 && attemptedKills >= 1;
+
+            var isTakenDown = attemptedTakeDowns >= 1;
             
             if (isSaved) {
                 player.state(PlayerState.SAVED);
-            } else if (isKilled) {
+            } else if (isKilled || isTakenDown) {
                 player.state(PlayerState.KILLED);
+                player.properties().addProperty("killed", true);
             } else {
                 player.state(PlayerState.ALIVE);
             }
@@ -101,6 +125,10 @@ public class PlayerEngine {
                     // data already filled by RuleEngine
                     result.resultType(PlayerActionResultType.INFO);
                 }
+                case TAKEDOWN -> {
+                    result.resultType(PlayerActionResultType.SUCCESS);
+                }
+                default -> throw new IllegalArgumentException("Unexpected value: " + ctx.ability().getAction());
             }
         }
 

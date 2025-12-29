@@ -17,7 +17,7 @@ public class RuleEngine {
                 var ability = context.ability();
                 var actionResultData = context.playerActionResult().data();
                 switch (ability.getAction()) {
-                    case KILL -> {
+                    case KILL, TAKEDOWN -> {
                         // Example rule: If the target has a protective role, cancel the kill
                         // This is just a placeholder for actual rule logic
                     }

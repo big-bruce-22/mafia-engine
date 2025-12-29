@@ -15,6 +15,7 @@ import mafia.engine.game.channel.SimpleToBlockingAdapter;
 import mafia.engine.game.channel.prompt.Prompt;
 import mafia.engine.game.event.GameUpdate;
 import mafia.engine.presets.Preset;
+import mafia.engine.property.Properties;
 import mafia.engine.role.Role;
 import mafia.engine.util.StreamUtils;
 
@@ -32,10 +33,11 @@ public class Host {
 
     private Preset preset;
 
-    public void configure(
-        GameConfiguration gameConfig,
-        GameRules gameRules
-    ) {
+    public Properties getGameProperties() {
+        return engine.gameProperties();
+    }
+
+    public void configure(GameConfiguration gameConfig,GameRules gameRules) {
         this.gameConfig = gameConfig;
         this.gameRules = gameRules;
     }

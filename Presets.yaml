@@ -60,4 +60,6 @@ presets:
     players: 1
   - role: Godfather
     players: 1
-  secondaryRoles: []
+  secondaryRoles:
+  - role: Soulmate
+    players: 4

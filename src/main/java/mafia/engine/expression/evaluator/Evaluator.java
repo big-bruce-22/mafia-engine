@@ -98,7 +98,9 @@ public class Evaluator {
             case Number n   -> new EvaluationResult(EvaluationType.NUMBER, n.floatValue());
             case Boolean b  -> new EvaluationResult(EvaluationType.BOOLEAN, b);
             case List<?> l  -> new EvaluationResult(EvaluationType.LIST, l);
-            case String s   -> new EvaluationResult(EvaluationType.LITERAL, s);
+            case String s   -> s.equalsIgnoreCase("true") ? new EvaluationResult(EvaluationType.BOOLEAN, true)
+                                : s.equalsIgnoreCase("false") ? new EvaluationResult(EvaluationType.BOOLEAN, false)
+                                : new EvaluationResult(EvaluationType.LITERAL, s);
             default         -> new EvaluationResult(EvaluationType.LITERAL, raw);
         };
     }

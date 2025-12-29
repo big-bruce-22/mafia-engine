@@ -41,6 +41,12 @@ public class Player implements PropertyHolder {
     @Getter
     private final UUID PLAYER_ID = UUID.randomUUID();
 
+    public Player() {
+        properties.addProperty("votedOut", false);
+        properties.addProperty("killed", false);
+        properties.addProperty("killer", new ArrayList<Player>());
+    }
+
     public void incrementAttemptedAction(PlayerAction action) {
         attemptedActions.putIfAbsent(action, 0);
         attemptedActions.put(action, attemptedActions.get(action) + 1);

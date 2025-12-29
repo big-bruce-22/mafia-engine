@@ -2,14 +2,12 @@ version: 0.0.1
 rules:
   evilWinningCondition:
     - count(game.players, player.state is ALIVE and player.alignment is Good) + 
-      count(game.players, player.state is ALIVE and player.alignment is Neutral) < 2
-    - count(game.players, player.state is ALIVE and player.alignment is Good) + 
-      count(game.players, player.state is ALIVE and player.alignment is Neutral) == 
+      count(game.players, player.state is ALIVE and player.alignment is Neutral) <=
       count(game.players, player.state is ALIVE and player.alignment is Evil)
   continueRoundConditions:
     - count(game.players, player.state is ALIVE and player.alignment is Evil) > 0
   roleRevealConditions:
     - player.alignment is Evil
     - player.soulmate.state is DEAD or player.soulmate.state is KILLED
-    - player.role is Psycho
-    - player.killer.role is Psycho
+    - player.role.roleName is Psycho
+    - player.takendown

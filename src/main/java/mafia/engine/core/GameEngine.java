@@ -31,6 +31,7 @@ import mafia.engine.game.event.GameEnded;
 import mafia.engine.game.event.GameUpdate;
 import mafia.engine.game.event.NightEvent;
 import mafia.engine.game.event.PhasedChangedUpdate;
+import mafia.engine.game.event.PlayerRemainingUpdate;
 import mafia.engine.game.event.RoleRevealUpdate;
 import mafia.engine.game.event.TimeRemainingUpdate;
 import mafia.engine.game.event.VotingResultUpdate;
@@ -122,11 +123,30 @@ public class GameEngine implements PropertyHolder {
         return gameProperties.getProperty(key);
     }
 
+    public void resume() {
+        if (gameState != GameState.PAUSED) {
+            throw new IllegalStateException("Cannot resume game that is not paused");
+        }
+        gameState = GameState.PLAYING;
+    }
+
+    public void pause() {
+        if (gameState != GameState.PLAYING) {
+            throw new IllegalStateException("Cannot pause game that is not playing");
+        }
+        gameState = GameState.PAUSED;
+    }
+
+    public void stop() {
+        gameState = GameState.ENDED;
+    }
+
     public void start() {
         var durations = getDurations();
         gameProperties.addProperty("nightCounter", 1);
         gameProperties.addProperty("nightTimeLeft", durations.get("nightTimeActionTimer"));
         gameProperties.addProperty("discussionTimeLeft", durations.get("daytimeDiscussionTimer"));
+        gameProperties.addProperty("miscellaneousTimeLeft", durations.get("miscellaneousTimer"));
         gameProperties.addProperty("votingTimeLeft", durations.get("dayTimeVotingTimer"));
 
         gameState = GameState.LOADING;
@@ -135,22 +155,18 @@ public class GameEngine implements PropertyHolder {
         
         gameState = GameState.STARTING;
 
-        players.forEach(p -> {
-            System.out.print(p.name() + " is " + p.role().getRoleName());
-            if (p.secondaryRole() != null) {
-                System.out.print(" with secondary role " + p.secondaryRole().getRoleName());
-            }
-            System.out.println();
-        });
-        System.out.println();
-
         gameUpdateChannel.send(new PhasedChangedUpdate(null, GamePhase.NIGHT));
         while (gameState != GameState.ENDED) {
+            if (gameState == GameState.PAUSED) {
+                sleep(100);
+                continue;
+            }
+
             switch (gamePhase) {
                 case NIGHT      -> handleNightPhase(durations.get("nightTimeActionTimer"));
-                case DAY        -> handleDayPhase();
+                case DAY        -> handleDayPhase(durations.get("miscellaneousTimer"));
                 case DISCUSSION -> handleDiscussionPhase(durations.get("daytimeDiscussionTimer"));
-                case VOTING     -> handleVotingPhase(durations.get("dayTimeVotingTimer"));
+                case VOTING     -> handleVotingPhase(durations.get("dayTimeVotingTimer"), durations.get("miscellaneousTimer"));
                 default -> {}
             }
         }
@@ -164,33 +180,25 @@ public class GameEngine implements PropertyHolder {
                     .stream()
                     .filter(Ability::required)
                     .count() > 0
+                    && p.state() == PlayerState.ALIVE
             ).toList();
         
         // create prompt for each player
-        var alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
+        var alivePlayers = alivePlayers();
         for (var player : playersWithRequiredAbiliies) {
-            var abilities = filter(player.role().getAbilities(), Ability::required);
-            var prompt = new AbilityPrompt(
+            sendAbilityPrompt(
                 player,
-                mapToList(abilities, a -> new PromptOption(a.name())),
+                filter(player.role().getAbilities(), Ability::required),
                 alivePlayers
             );
-            promptChannel.send(prompt);
         }
 
-        gameProperties.addProperty("nightTimeLeft", nightDuration);
-        for (var i = nightDuration; i >= 0; i--) {
-            sleepInSeconds(1);
-            gameProperties.addProperty("nightTimeLeft", i);
-            gameUpdateChannel.send(new TimeRemainingUpdate(GamePhase.NIGHT, i));
-        }
-        
-        gameUpdateChannel.send(new PhasedChangedUpdate(GamePhase.NIGHT, GamePhase.DAY));
+        runTimer("nightTimeLeft", "Night", nightDuration, null);
         setPhase(GamePhase.DAY);
     }
 
     @SuppressWarnings("unchecked")
-    private void handleDayPhase() {
+    private void handleDayPhase(long takeDownDuration) {
         var responses = new ArrayList<PromptResponse>();
         while (promptResponseChannel.hasSent()) {
             responses.add(promptResponseChannel.receive());
@@ -202,17 +210,7 @@ public class GameEngine implements PropertyHolder {
                 throw new IllegalStateException("Expected AbilityPromptResponse but got " + response.getClass());
             }
 
-            var source = res.source();
-            var option = res.option();
-            var target = res.target();
-
-            var ability = source.role().getAbilities().stream()
-                .filter(a -> a.name().equalsIgnoreCase(option.option()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                    "Ability " + option + " not found for player " + source.name()
-                ));
-            contexts.add(new PlayerActionContext(source, target, ability));
+            contexts.add(resolveAbilityResponse(res));
         }
 
         playerEngine.updatePlayersState(contexts, players, configuration);
@@ -225,19 +223,8 @@ public class GameEngine implements PropertyHolder {
         var killedThisNight = filterPlayer(p -> p.state() == PlayerState.KILLED);
         var healedThisNight = isAnonymousHeal ? List.<Player>of() : filterPlayer(p -> p.state() == PlayerState.SAVED);
 
-        for (var it = killedThisNight.listIterator(); it.hasNext(); ) {
-            var p = it.next();
-            if (p.secondaryRole() != null) {
-                if (p.secondaryRole().getRoleName().equalsIgnoreCase("Soulmate")) {
-                    var soulmate = (Player) p.getProperties().getProperty("soulmate");
-                    soulmate.state(PlayerState.KILLED);
-                    it.add(soulmate);
-                }
-            }
-        }
-
+        applySoulmateDeaths(killedThisNight);
         killedThisNight = killedThisNight.stream().distinct().toList();
-
         killedThisNight.forEach(p -> p.state(PlayerState.DEAD));
         if (!isAnonymousHeal) {
             healedThisNight.forEach(p -> p.state(PlayerState.ALIVE));
@@ -246,37 +233,31 @@ public class GameEngine implements PropertyHolder {
         var killedEvents = mapToList(killedThisNight, p -> new NightEvent(PlayerState.KILLED, p));
         var healedEvents = isAnonymousHeal ? List.<NightEvent>of() : 
             mapToList(healedThisNight, p -> new NightEvent(PlayerState.SAVED, p));
-        
         var update = new NightActionResolutionUpdate(combineLists(killedEvents, healedEvents));
         gameUpdateChannel.send(update);
         
         revealPlayerPrimaryRoles(killedThisNight, GamePhase.DAY);
-
-        var alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
-        var aliveEvilPlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE && p.alignment().equals("Evil"));
+        resolveTriggeredAbilities(
+            killedThisNight,
+            alivePlayers(),
+            takeDownDuration
+        );
         
-        if (alivePlayers.size() < 3 || aliveEvilPlayers.size() == 0) {
+        var aliveEvilPlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE && p.alignment().equals("Evil"));
+        if (alivePlayers().size() < 3 || aliveEvilPlayers.size() == 0) {
             concludeRound();
         } else {
-            gameUpdateChannel.send(new PhasedChangedUpdate(GamePhase.DAY, GamePhase.DISCUSSION));
             setPhase(GamePhase.DISCUSSION);
         }
     }
 
     private void handleDiscussionPhase(long discussionDuration) {
-        gameProperties.addProperty("discussionTimeLeft", discussionDuration);
-        for (var i = discussionDuration; i >= 0; i--) {
-            sleepInSeconds(1);
-            gameProperties.addProperty("discussionTimeLeft", i);
-            gameUpdateChannel.send(new TimeRemainingUpdate(GamePhase.NIGHT, i));
-        }
-
-        gameUpdateChannel.send(new PhasedChangedUpdate(GamePhase.DISCUSSION, GamePhase.VOTING));
+        runTimer("discussionTimeLeft", "Discussion", discussionDuration, null);
         setPhase(GamePhase.VOTING);
     }
 
-    private void handleVotingPhase(long votingDuration) {
-        var alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
+    private void handleVotingPhase(long votingDuration, long takeDownDuration) {
+        var alivePlayers = alivePlayers();
 
         var choices = mapToList(alivePlayers, VotePromptOption::new);
         for (var player : alivePlayers) {
@@ -287,12 +268,7 @@ public class GameEngine implements PropertyHolder {
             promptChannel.send(prompt);
         }
 
-        gameProperties.addProperty("votingTimeLeft", votingDuration);
-        for (var i = votingDuration; i >= 0; i--) {
-            sleepInSeconds(1);
-            gameProperties.addProperty("votingTimeLeft", i);
-            gameUpdateChannel.send(new TimeRemainingUpdate(GamePhase.NIGHT, i));
-        }
+        runTimer("votingTimeLeft", "Voting", votingDuration, null);
 
         var votes = new ArrayList<PlayerVote>();
         while (promptResponseChannel.hasSent()) {
@@ -308,29 +284,88 @@ public class GameEngine implements PropertyHolder {
         gameUpdateChannel.send(new VotingResultUpdate(result));
     
         if (result.target() != null) {
+            var target = result.target();
             var playersToReveal = new ArrayList<Player>();
-            playersToReveal.add(result.target());
+            playersToReveal.add(target);
             playersToReveal.addAll(result.affectedByTarget());
             revealPlayerPrimaryRoles(playersToReveal, GamePhase.VOTING);
+
+            alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
+
+            resolveTriggeredAbilities(
+                List.of(target),
+                alivePlayers,
+                takeDownDuration
+            );
         }
 
         concludeRound();
     }
 
-    private Map<String, Long> getDurations() {
-        return Map.of(
-            "nightTimeActionTimer", configuration.getDurationConfiguration(
-                                        "general", 
-                                        "nightTimeActionTimer"
-                                    ).toSeconds(),
-            "daytimeDiscussionTimer", configuration.getDurationConfiguration(
-                                        "general", 
-                                        "daytimeDiscussionTimer"
-                                    ).toSeconds(),
-            "dayTimeVotingTimer", configuration.getDurationConfiguration(
-                                        "general", 
-                                        "dayTimeVotingTimer"
-                                    ).toSeconds()
+    private void resolveTriggeredAbilities(
+        List<Player> sources,
+        List<Player> validTargets,
+        long timeoutSeconds
+    ) { 
+        var triggeredContexts = new ArrayList<PlayerActionContext>();
+
+        var triggeredPlayers = new ArrayList<Player>();
+        for (var player : sources) {
+            var ability = getTriggeredAbility(player);
+            if (ability != null) {
+                sendAbilityPrompt(
+                    player,
+                    List.of(ability),
+                    validTargets
+                );
+                triggeredPlayers.add(player);
+            }
+        }
+
+        if (triggeredPlayers.isEmpty()) {
+            return;
+        }
+
+        runTimer(
+            "miscellaneousTimeLeft",
+            "Miscellaneous tasks",
+            timeoutSeconds,
+            _ -> promptResponseChannel.size() >= triggeredPlayers.size()
+        );
+
+        for (int i = 0; i < triggeredPlayers.size(); i++) {
+            var response = promptResponseChannel.receive();
+            if (!(response instanceof AbilityPromptResponse res)) {
+                throw new IllegalStateException(
+                    "Expected AbilityPromptResponse but got " + response.getClass()
+                );
+            }
+
+            triggeredContexts.add(resolveAbilityResponse(res));
+        }
+
+        playerEngine.updatePlayersState(
+            triggeredContexts,
+            players,
+            configuration
+        );
+
+        var killedThisEvent = filterPlayer(p -> p.state() == PlayerState.KILLED);
+
+        applySoulmateDeaths(killedThisEvent);
+
+        killedThisEvent = killedThisEvent.stream().distinct().toList();
+
+        revealPlayerPrimaryRoles(killedThisEvent, gamePhase);
+
+        killedThisEvent.forEach(p -> p.state(PlayerState.DEAD));
+
+        var alivePlayers = alivePlayers();
+
+        resolveTriggeredAbilities(
+            killedThisEvent,
+            alivePlayers,
+            timeoutSeconds
         );
     }
 
@@ -363,7 +398,7 @@ public class GameEngine implements PropertyHolder {
                             reveals.add(new RoleReveal(p, p.role(), p.secondaryRole()));
                             break;
                         }
-                    } catch (IllegalStateException _) {
+                    } catch (IllegalStateException e) {
                         continue;
                     }
                 }
@@ -375,21 +410,100 @@ public class GameEngine implements PropertyHolder {
         gameUpdateChannel.send(new RoleRevealUpdate(reveals));
     }
 
+    private void applySoulmateDeaths(List<Player> killed) {
+        for (var it = killed.listIterator(); it.hasNext(); ) {
+            var p = it.next();
+            if (p.secondaryRole() != null &&
+                "Soulmate".equalsIgnoreCase(p.secondaryRole().getRoleName())) {
+
+                var soulmate = (Player) p.getProperties().getProperty("soulmate");
+                soulmate.state(PlayerState.KILLED);
+                soulmate.properties().addProperty("votedOut", true);
+                soulmate.properties().addProperty("killed", true);
+                it.add(soulmate);
+            }
+        }
+    }
+
+    private void sendAbilityPrompt(
+        Player player,
+        List<Ability> abilities,
+        List<Player> targets
+    ) {
+        promptChannel.send(
+            new AbilityPrompt(
+                player,
+                mapToList(abilities, a -> new PromptOption(a.name())),
+                targets
+            )
+        );
+    }
+
+    private Ability getTriggeredAbility(Player player) {
+        for (var ability : player.role().getAbilities()) {
+            try {
+                if ((Boolean) expressionEngine.evalaute(ability.trigger(), player.getProperties()).result()) {
+                    return ability;
+                }
+            } catch (Exception e) {
+                continue;
+            }
+        }
+        return null;
+    }
+
+    private PlayerActionContext resolveAbilityResponse(
+        AbilityPromptResponse res
+    ) {
+        var source = res.source();
+        var ability = source.role().getAbilities().stream()
+            .filter(a -> a.name().equalsIgnoreCase(res.option().option()))
+            .findFirst()
+            .orElseThrow();
+
+        return new PlayerActionContext(source, res.target(), ability);
+    }
+
+    private List<Player> alivePlayers() {
+        return filterPlayer(p -> p.state() == PlayerState.ALIVE);
+    }
+
     private void concludeRound() {
         var evilWin = evaluateBooleanExpression("evilWinningCondition");
         var continueRound = evaluateBooleanExpression("continueRoundConditions");
 
         if (evilWin) {
             gameUpdateChannel.send(new GameEnded("Evil wins"));
-            setState(GameState.ENDED);
+            gameState = GameState.ENDED;
         } else if (continueRound) {
-            gameUpdateChannel.send(new PhasedChangedUpdate(GamePhase.VOTING, GamePhase.NIGHT));
-            gamePhase = GamePhase.NIGHT;
+            gameUpdateChannel.send(new PlayerRemainingUpdate(filterPlayer(p -> p.state() == PlayerState.ALIVE)));
             var nightCounter = (int) gameProperties.getProperty("nightCounter");
             gameProperties.addProperty("nightCounter", nightCounter + 1);
+            setPhase(GamePhase.NIGHT);
         } else {
             gameUpdateChannel.send(new GameEnded("Good wins"));
-            setState(GameState.ENDED);
+            gameState = GameState.ENDED;
+        }
+    }
+
+    private void runTimer(
+        String propertyKey,
+        String label,
+        long seconds,
+        Predicate<Long> stopCondition
+    ) {
+        gameProperties.addProperty(propertyKey, seconds);
+
+        for (long i = seconds; i >= 0; i--) {
+            if (stopCondition != null && stopCondition.test(i)) {
+                gameProperties.addProperty(propertyKey, 0L);
+                gameUpdateChannel.send(new TimeRemainingUpdate(label, 0));
+                break;
+            }
+
+            sleepInSeconds(1);
+            gameProperties.addProperty(propertyKey, i);
+            gameUpdateChannel.send(new TimeRemainingUpdate(label, i));
         }
     }
     
@@ -400,6 +514,27 @@ public class GameEngine implements PropertyHolder {
             }
         }
         return false;
+    }
+
+    private Map<String, Long> getDurations() {
+        return Map.of(
+            "nightTimeActionTimer", configuration.getDurationConfiguration(
+                                        "general", 
+                                        "nightTimeActionTimer"
+                                    ).toSeconds(),
+            "daytimeDiscussionTimer", configuration.getDurationConfiguration(
+                                        "general", 
+                                        "daytimeDiscussionTimer"
+                                    ).toSeconds(),
+            "dayTimeVotingTimer", configuration.getDurationConfiguration(
+                                        "general", 
+                                        "dayTimeVotingTimer"
+                                    ).toSeconds(),
+            "miscellaneousTimer", configuration.getDurationConfiguration(
+                                        "other", 
+                                        "miscellaneousTimer"
+                                    ).toSeconds()
+        );
     }
 
     private List<Player> filterPlayer(Predicate<Player> filter) {
@@ -419,13 +554,8 @@ public class GameEngine implements PropertyHolder {
     }
 
     private void setPhase(GamePhase phase) {
+        gameUpdateChannel.send(new PhasedChangedUpdate(gamePhase, phase));
         gamePhase = phase;
-        sleep(100);
-    }
-
-    private void setState(GameState state) {
-        gameState = state;
-        sleep(100);
     }
 
     @Override

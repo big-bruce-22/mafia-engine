@@ -56,7 +56,7 @@ public class Main {
             "Ralph"
         };
 
-        return new ArrayList<>(Arrays.asList(classNames)
+        return new ArrayList<>(Arrays.asList(names)
             .stream()
             .map(n -> new Player().name(n))
             .toList());

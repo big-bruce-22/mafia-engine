@@ -9,7 +9,6 @@ public class BlockingChannel<T> implements Channel<T> {
     
     @Override
     public void send(T value) {
-        // System.out.println("BlockingChannel: sending value " + value);
         if (value == null) {
             throw new IllegalArgumentException("Channel cannot send null");
         }
@@ -19,7 +18,6 @@ public class BlockingChannel<T> implements Channel<T> {
     @Override
     public T receive() {
         try {
-            // System.out.println("BlockingChannel: receive value " + queue.peek());
             return queue.take();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -30,6 +28,10 @@ public class BlockingChannel<T> implements Channel<T> {
     @Override
     public boolean hasSent() {
         return !queue.isEmpty();
+    }
+    
+    public int size() {
+        return queue.size();
     }
 
     @Override

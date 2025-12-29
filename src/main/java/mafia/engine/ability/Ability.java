@@ -6,9 +6,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+
 import mafia.engine.player.PlayerAction;
 import mafia.engine.property.Properties;
 import mafia.engine.property.PropertyHolder;
@@ -27,6 +27,10 @@ public class Ability implements PropertyHolder {
 
     @Getter
     private boolean required;
+
+    @Getter
+    @JsonProperty("trigger")
+    private String trigger;
 
     @Getter
     @JsonProperty("abilityProperties")

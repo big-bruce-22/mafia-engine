@@ -138,3 +138,11 @@ configurations:
     value: false
     configurationDescription:
     - The Godfather may only kill those he has previously investigated
+  other:
+  - configurationName: miscellaneousTimer
+    displayName: Miscellaneous Time 
+    valueType: duration
+    value: 2s
+    configurationDescription:
+    - The amount of time given to any miscellaneous task to player beside from voting and doing night activities
+
