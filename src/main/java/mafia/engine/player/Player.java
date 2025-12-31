@@ -47,6 +47,12 @@ public class Player implements PropertyHolder {
         properties.addProperty("killer", new ArrayList<Player>());
     }
 
+    public Player(PlayerState state) {
+        this();
+        this.state = state;
+        properties.addProperty("state", state);
+    }
+
     public void incrementAttemptedAction(PlayerAction action) {
         attemptedActions.putIfAbsent(action, 0);
         attemptedActions.put(action, attemptedActions.get(action) + 1);

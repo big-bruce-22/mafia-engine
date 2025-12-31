@@ -1,7 +1,9 @@
 package mafia.engine.player;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import mafia.engine.ability.AbilityEngine;
 import mafia.engine.core.GameConfiguration;
@@ -16,8 +18,78 @@ public class PlayerEngine {
     private AbilityEngine abilityEngine = new AbilityEngine();
     private RuleEngine ruleEngine = new RuleEngine();
 
+    public void updatePlayerState(
+        PlayerActionContext context,
+        List<Player> players, 
+        GameConfiguration configuration
+    ) {
+        var affectedPlayers = resolveAffectedPlayers(List.of(context));
+        for (var player : affectedPlayers) {
+            resolvePlayerState(player, configuration);
+        }
+
+        setContextResults(context);
+    }
+
+    public void updatePlayersState(
+        List<PlayerActionContext> contexts,
+        List<Player> players, 
+        GameConfiguration configuration
+    ) {
+        var affectedPlayers = resolveAffectedPlayers(contexts);
+        for (var player : affectedPlayers) {
+            resolvePlayerState(player, configuration);
+        }
+
+        for (var ctx : contexts) {
+            setContextResults(ctx);
+        }
+    }
+
+    private void setContextResults(PlayerActionContext ctx) {
+        PlayerActionResult result = ctx.playerActionResult();
+
+        if (ctx.cancelled()) {
+            result.resultType(PlayerActionResultType.FAILED);
+            result.data().put("reason", "Action was cancelled");
+            return;
+        }
+
+        Player target = ctx.target();
+
+        switch (ctx.ability().getAction()) {
+            case KILL -> {
+                if (target.state() == PlayerState.KILLED) {
+                    result.resultType(PlayerActionResultType.SUCCESS);
+                } else {
+                    result.resultType(PlayerActionResultType.FAILED);
+                    result.data().put("reason", "Target survived");
+                }
+            }
+
+            case HEAL -> {
+                result.resultType(switch (target.state()) {
+                    case SAVED -> PlayerActionResultType.SUCCESS;
+                    case ALIVE, DEAD -> PlayerActionResultType.NONE;
+                    case KILLED -> PlayerActionResultType.FAILED;
+                    default -> throw new IllegalArgumentException("Unexpected value: " + target.state());
+                });
+            }
+
+            case INVESTIGATE -> {
+                // data already filled by RuleEngine
+                result.resultType(PlayerActionResultType.INFO);
+            }
+            case TAKEDOWN -> {
+                result.resultType(PlayerActionResultType.SUCCESS);
+            }
+            default -> throw new IllegalArgumentException("Unexpected value: " + ctx.ability().getAction());
+        }
+    }
+
     @SuppressWarnings("unchecked")
-    public void updatePlayersState(List<PlayerActionContext> contexts, List<Player> players, GameConfiguration configuration) {
+    private Set<Player> resolveAffectedPlayers(List<PlayerActionContext> contexts) {
+        Set<Player> affectedPlayers = new HashSet<>();
         for (var ctx : contexts) {
             ruleEngine.process("before", ctx);
 
@@ -26,6 +98,7 @@ public class PlayerEngine {
             }
 
             var abilityName = ctx.ability().name();
+            
             switch (abilityName.toLowerCase()) {
                 case "nightkill", "daykill" -> {
                     var targetProperties = ctx.target().properties();
@@ -49,88 +122,33 @@ public class PlayerEngine {
             ctx.playerActionResult(result);
 
             ruleEngine.process("after", ctx);
+
+            affectedPlayers.add(ctx.target());
+        }
+        
+        return affectedPlayers;
+    }
+
+    private void resolvePlayerState(Player player, GameConfiguration config) {
+        if (player.state() != PlayerState.ALIVE) return;
+
+        int kills = player.attemptedActions().getOrDefault(PlayerAction.KILL, 0);
+        int heals = player.attemptedActions().getOrDefault(PlayerAction.HEAL, 0);
+        int takedowns = player.attemptedActions().getOrDefault(PlayerAction.TAKEDOWN, 0);
+
+        boolean isOverKill = config.getBooleanConfiguration("general", "overkillRule");
+
+        boolean isSaved = isOverKill ? kills == heals : kills >= 1 && heals >= 1;
+        boolean isKilled = isOverKill ? kills != heals : kills >= 1 && heals < 1;
+        boolean isTakenDown = takedowns >= 1;
+
+        if (isSaved) {
+            player.state(PlayerState.SAVED);
+        } else if (isKilled || isTakenDown) {
+            player.state(PlayerState.KILLED);
+            player.properties().addProperty("killed", true);
         }
 
-        for (var player : players) {
-            var attemptedKills = player.attemptedActions().get(PlayerAction.KILL);
-            var attemptedTakeDowns = player.attemptedActions().get(PlayerAction.TAKEDOWN);
-            var attemptedHeals = player.attemptedActions().get(PlayerAction.HEAL);
-
-            attemptedKills = attemptedKills == null ? 0 : attemptedKills;
-            attemptedHeals = attemptedHeals == null ? 0 : attemptedHeals;
-            attemptedTakeDowns = attemptedTakeDowns == null ? 0 : attemptedTakeDowns;
-
-            if (player.state() != PlayerState.ALIVE) {
-                continue;
-            }
-
-            var isOverKill = configuration.getBooleanConfiguration(
-                                "general", 
-                                "overkillRule"
-                            );
-
-            var isSaved = isOverKill 
-                            ? attemptedHeals == attemptedKills 
-                            : attemptedHeals >= 1 && attemptedKills >= 1;
-            
-            var isKilled = isOverKill 
-                            ? attemptedHeals != attemptedKills 
-                            : attemptedHeals < 1 && attemptedKills >= 1;
-
-            var isTakenDown = attemptedTakeDowns >= 1;
-            
-            if (isSaved) {
-                player.state(PlayerState.SAVED);
-            } else if (isKilled || isTakenDown) {
-                player.state(PlayerState.KILLED);
-                player.properties().addProperty("killed", true);
-            } else {
-                player.state(PlayerState.ALIVE);
-            }
-            
-            player.attemptedActions().clear();
-        }
-
-        for (var ctx : contexts) {
-            PlayerActionResult result = ctx.playerActionResult();
-
-            if (ctx.cancelled()) {
-                result.resultType(PlayerActionResultType.FAILED);
-                result.data().put("reason", "Action was cancelled");
-                continue;
-            }
-
-            Player target = ctx.target();
-
-            switch (ctx.ability().getAction()) {
-                case KILL -> {
-                    if (target.state() == PlayerState.KILLED) {
-                        result.resultType(PlayerActionResultType.SUCCESS);
-                    } else {
-                        result.resultType(PlayerActionResultType.FAILED);
-                        result.data().put("reason", "Target survived");
-                    }
-                }
-
-                case HEAL -> {
-                    result.resultType(switch (target.state()) {
-                        case SAVED -> PlayerActionResultType.SUCCESS;
-                        case ALIVE, DEAD -> PlayerActionResultType.NONE;
-                        case KILLED -> PlayerActionResultType.FAILED;
-                        default -> throw new IllegalArgumentException("Unexpected value: " + target.state());
-                    });
-                }
-
-                case INVESTIGATE -> {
-                    // data already filled by RuleEngine
-                    result.resultType(PlayerActionResultType.INFO);
-                }
-                case TAKEDOWN -> {
-                    result.resultType(PlayerActionResultType.SUCCESS);
-                }
-                default -> throw new IllegalArgumentException("Unexpected value: " + ctx.ability().getAction());
-            }
-        }
-
+        player.attemptedActions().clear();
     }
 }

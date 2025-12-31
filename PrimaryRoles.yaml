@@ -13,6 +13,9 @@ roles:
   - ability: heal
     abilityDescription: Heal someone that has been targeted by the Mafia
     required: true
+    optional: true
+    immediateResult: false
+    abilityTime: night
   roleDescription: A skilled healer who can save lives in the dead of night. Their choices can completely change the outcome of the game.
   cardImagePath: "/assets/cards/Doctor.png"
   tokenImagePath: "/assets/tokens/Doctor.png"
@@ -23,6 +26,9 @@ roles:
   - ability: investigate
     abilityDescription: Leads investigations to uncover a person's alignment
     required: true
+    optional: true
+    immediateResult: true
+    abilityTime: night
     abilityProperties:
       revealInvestigation: side
       minimumInvestigations: 0
@@ -38,6 +44,7 @@ roles:
   - ability: takedown
     abilityDescription: Takes someone down with them when killed or voted out
     trigger: player.votedOut or player.killed
+    abilityTime: day
   roleDescription: The mentally unstable civilian who is incredibly dangerous when provoked. Be careful on taking them down… cause they'll take you down with them too.
   cardImagePath: "/assets/cards/Psycho.png"
   tokenImagePath: "/assets/tokens/Psycho.png"
@@ -48,8 +55,12 @@ roles:
   - ability: nightKill
     abilityDescription: Shoot an evil
     required: false
+    immediateResult: true
+    optional: true
+    abilityTime: night
   - ability: killSelf
     required: false
+    optional: false
     trigger: player.killed.alignment is Good
     
   roleDescription: Just a guy trying his best to stop the evil from destroying the town. He shoots when he deems necessary and falls into shame and guilt when his gut instinct is wrong.
@@ -62,6 +73,9 @@ roles:
   - ability: nightKill
     abilityDescription: Eliminate a player every night
     required: true
+    immediateResult: false
+    optional: true
+    abilityTime: night
   roleDescription: Commands the night with strategy and deception. Stays calm under pressure and blends in easily during discussions. A dangerous foe indeed for the poor townspeople.
   cardImagePath: "/assets/cards/Killer.png"
   tokenImagePath: "/assets/tokens/Killer.png"
@@ -72,13 +86,19 @@ roles:
   - ability: nightKill
     abilityDescription: Eliminate a player every night
     required: true
+    optional: true
+    immediateResult: false
+    abilityTime: night
   - ability: morningKill
     abilityDescription: Revealing yourself during voting phase to kill someone
     required: false
-    condition:
-    - votingPhaseBegun
-    - count(players, player.state is ALIVE).size > 1
-    - count(players, player.alignment is Evil) != 1
+    optional: true
+    immediateResult: false
+    abilityTime: day
+    conditions:
+    - game.phase is VOTING
+      and count(game.players, player.state is ALIVE).size > 1
+      and count(game.players, player.alignment is Evil) != 1
   roleDescription: A character who tests the bounds of their role's secrecy, they could reveal themselves and risk elimination just for the sake of their personal mission.
   cardImagePath: "/assets/cards/Murderer.png"
   tokenImagePath: "/assets/tokens/Murderer.png"
@@ -89,9 +109,14 @@ roles:
   - ability: nightKill
     abilityDescription: Eliminate a player every night
     required: true
+    optional: true
+    abilityTime: night
   - ability: investigate
     abilityDescription: Investigate someone to reveal their exact role
     required: true
+    optional: true
+    immediateResult: true
+    abilityTime: night
     abilityProperties:
       revealInvestigation: role
       minimumInvestigations: 0

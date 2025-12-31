@@ -1,5 +1,7 @@
 package mafia.engine.game.event;
 
-public abstract class GameUpdate {
+import mafia.engine.game.channel.message.Message;
+
+public abstract class GameUpdate implements Message {
 
 }

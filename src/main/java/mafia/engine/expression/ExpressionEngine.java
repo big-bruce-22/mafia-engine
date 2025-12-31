@@ -13,9 +13,9 @@ import mafia.engine.property.Properties;
 
 public class ExpressionEngine {
     
-    private Lexer lexer = new Lexer();
-    private Parser parser = new Parser();
-    private Evaluator evaluator = new Evaluator();
+    private final Lexer lexer = new Lexer();
+    private final Parser parser = new Parser();
+    private final Evaluator evaluator = new Evaluator();
 
     private Map<String, Node> cache = new HashMap<>();
 
@@ -29,7 +29,7 @@ public class ExpressionEngine {
         if (!cache.containsKey(expression)) {
             cache.put(expression, parse(expression));
         }
-
+        
         return evaluator.evaluate(cache.get(expression), properties, properties.propertyName());
     }
 

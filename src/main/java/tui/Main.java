@@ -6,7 +6,9 @@ import java.util.List;
 
 import client.Client;
 import client.SpectatorClient;
+
 import host.Host;
+
 import mafia.engine.config.PresetsConfig;
 import mafia.engine.config.RoleConfig;
 import mafia.engine.config.loader.Loader;
@@ -56,7 +58,7 @@ public class Main {
             "Ralph"
         };
 
-        return new ArrayList<>(Arrays.asList(names)
+        return new ArrayList<>(Arrays.asList(classNames)
             .stream()
             .map(n -> new Player().name(n))
             .toList());

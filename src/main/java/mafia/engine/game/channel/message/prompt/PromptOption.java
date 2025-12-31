@@ -1,4 +1,4 @@
-package mafia.engine.game.channel.prompt;
+package mafia.engine.game.channel.message.prompt;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

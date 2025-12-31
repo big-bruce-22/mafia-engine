@@ -12,8 +12,11 @@ import mafia.engine.core.GameRules;
 import mafia.engine.game.channel.BlockingToSimpleAdapter;
 import mafia.engine.game.channel.SimpleChannel;
 import mafia.engine.game.channel.SimpleToBlockingAdapter;
-import mafia.engine.game.channel.prompt.Prompt;
+import mafia.engine.game.channel.message.Information;
+import mafia.engine.game.channel.message.prompt.Prompt;
 import mafia.engine.game.event.GameUpdate;
+import mafia.engine.player.Player;
+import mafia.engine.player.PlayerState;
 import mafia.engine.presets.Preset;
 import mafia.engine.property.Properties;
 import mafia.engine.role.Role;
@@ -63,13 +66,13 @@ public class Host {
 
     public void startGame() {
         var players = new ArrayList<>(StreamUtils.mapToList(clients, Client::player));
+        players.forEach(p -> p.state(PlayerState.ALIVE));
         engine = new GameEngine(players, primaryRoles, secondaryRoles, preset, gameRules);
         engine.configure(gameConfig);
 
         establishConnections();
 
-        var gameThread = new Thread(engine::start);
-        gameThread.start();
+        new Thread(engine::start).start();
     }
 
     private void establishConnections() {
@@ -78,7 +81,7 @@ public class Host {
 
         // ONE adapter
         new BlockingToSimpleAdapter<>(
-            engine.gameUpdateChannel(),
+            engine.gameChannels().gameUpdateChannel(),
             broadcastChannel
         );
 
@@ -96,25 +99,35 @@ public class Host {
         clients.forEach(c ->
             new SimpleToBlockingAdapter<>(
                 c.promptResponseChannel(),
-                engine.promptResponseChannel()
+                engine.gameChannels().promptResponseChannel()
             )
         );
 
         // redirect prompts from engine to clients
         new Thread(() -> {
-            var promptChannel = engine.promptChannel();
+            var promptChannel = engine.gameChannels().promptChannel();
             while (true) {
                 Prompt prompt = promptChannel.receive();
-
-                // find the client for the target player
-                Client targetClient = clients.stream()
-                    .filter(c -> c.player().equals(prompt.target()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("No client found for player: " + prompt.target().name()));
-
-                // forward prompt to client
+                Client targetClient = findClientByPlayer(prompt.target());
                 targetClient.promptChannel().publish(prompt);
             }
         }, "PromptForwarder").start();
+
+        // redirect prompts from engine to clients
+        new Thread(() -> {
+            var informationChannel = engine.gameChannels().informationChannel();
+            while (true) {
+                Information information = informationChannel.receive();
+                Client targetClient = findClientByPlayer(information.target());
+                targetClient.informationChannel().publish(information);
+            }
+        }, "InformationForwarder").start();
+    }
+
+    private Client findClientByPlayer(Player player) {
+        return clients.stream()
+            .filter(c -> c.player().equals(player))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("No client found for player: " + player.name()));
     }
 }

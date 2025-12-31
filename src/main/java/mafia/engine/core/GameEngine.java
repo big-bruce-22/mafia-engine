@@ -7,6 +7,9 @@ import static mafia.engine.util.StreamUtils.mapToList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
 import lombok.Getter;
@@ -15,20 +18,20 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import mafia.engine.ability.Ability;
-import mafia.engine.ability.AbilityEngine;
+import mafia.engine.core.dispatcher.DayPhaseDispatcher;
+import mafia.engine.core.dispatcher.NightPhaseDispatcher;
+import mafia.engine.core.dispatcher.VotingPhaseDispatcher;
 import mafia.engine.expression.ExpressionEngine;
-import mafia.engine.game.channel.BlockingChannel;
-import mafia.engine.game.channel.prompt.AbilityPrompt;
-import mafia.engine.game.channel.prompt.AbilityPromptResponse;
-import mafia.engine.game.channel.prompt.Prompt;
-import mafia.engine.game.channel.prompt.PromptOption;
-import mafia.engine.game.channel.prompt.PromptResponse;
-import mafia.engine.game.channel.prompt.VotePrompt;
-import mafia.engine.game.channel.prompt.VotePromptOption;
-import mafia.engine.game.channel.prompt.VotePromptResponse;
+import mafia.engine.game.channel.message.Information;
+import mafia.engine.game.channel.message.Message;
+import mafia.engine.game.channel.message.prompt.AbilityPrompt;
+import mafia.engine.game.channel.message.prompt.AbilityPromptOption;
+import mafia.engine.game.channel.message.prompt.AbilityPromptResponse;
+import mafia.engine.game.channel.message.prompt.PromptResponse;
+import mafia.engine.game.channel.message.prompt.VotePrompt;
+import mafia.engine.game.channel.message.prompt.VotePromptOption;
 import mafia.engine.game.event.NightActionResolutionUpdate;
 import mafia.engine.game.event.GameEnded;
-import mafia.engine.game.event.GameUpdate;
 import mafia.engine.game.event.NightEvent;
 import mafia.engine.game.event.PhasedChangedUpdate;
 import mafia.engine.game.event.PlayerRemainingUpdate;
@@ -45,9 +48,9 @@ import mafia.engine.property.PropertyHolder;
 import mafia.engine.role.DistributionEngine;
 import mafia.engine.role.Role;
 import mafia.engine.role.RoleReveal;
-import mafia.engine.rule.RuleEngine;
-import mafia.engine.vote.PlayerVote;
 import mafia.engine.vote.VoteResult;
+
+import tui.SplitPrinter;
 
 @Accessors(fluent = true)
 public class GameEngine implements PropertyHolder {
@@ -71,20 +74,15 @@ public class GameEngine implements PropertyHolder {
     @Getter
     private final Properties gameProperties = new Properties("game");
 
-    @Getter 
-    private final BlockingChannel<Prompt> promptChannel = new BlockingChannel<>();
-    
-    @Getter 
-    private final BlockingChannel<PromptResponse> promptResponseChannel= new BlockingChannel<>();
-    
-    @Getter 
-    private final BlockingChannel<GameUpdate> gameUpdateChannel = new BlockingChannel<>();
+    @Getter
+    private final GameChannels gameChannels = new GameChannels();
 
     private final GameRules gameRules;
 
+    private final Lock pauseLock = new ReentrantLock();
+    private final Condition unpaused = pauseLock.newCondition();
+
     private PlayerEngine playerEngine = new PlayerEngine();
-    private RuleEngine ruleEngine = new RuleEngine();
-    private AbilityEngine abilityEngine = new AbilityEngine();
     private DistributionEngine distributionEngine = new DistributionEngine();
     private ExpressionEngine expressionEngine = new ExpressionEngine();
     
@@ -124,17 +122,22 @@ public class GameEngine implements PropertyHolder {
     }
 
     public void resume() {
-        if (gameState != GameState.PAUSED) {
-            throw new IllegalStateException("Cannot resume game that is not paused");
+        pauseLock.lock();
+        try {
+            gameState = GameState.ONGOING;
+            unpaused.signalAll();
+        } finally {
+            pauseLock.unlock();
         }
-        gameState = GameState.PLAYING;
     }
 
     public void pause() {
-        if (gameState != GameState.PLAYING) {
-            throw new IllegalStateException("Cannot pause game that is not playing");
+        pauseLock.lock();
+        try {
+            gameState = GameState.PAUSED;
+        } finally {
+            pauseLock.unlock();
         }
-        gameState = GameState.PAUSED;
     }
 
     public void stop() {
@@ -152,89 +155,140 @@ public class GameEngine implements PropertyHolder {
         gameState = GameState.LOADING;
         distributionEngine.distributeRoles(preset, players, primaryRoles, "primary");
         distributionEngine.distributeRoles(preset, players, secondaryRoles, "secondary");
+
+        SplitPrinter.println("engine", "Player roles: ");
+        for (var player : players) {
+            SplitPrinter.print("engine", 
+                "- " + player.name() + ": " + player.role().getRoleName()
+            );
+
+            if (player.secondaryRole() != null) {
+                SplitPrinter.print("engine", 
+                    " - and " + player.secondaryRole().getRoleName()
+                );
+            }
+            SplitPrinter.println("engine");
+        }
         
         gameState = GameState.STARTING;
 
-        gameUpdateChannel.send(new PhasedChangedUpdate(null, GamePhase.NIGHT));
+        gameChannels.gameUpdateChannel().send(new PhasedChangedUpdate(null, GamePhase.NIGHT));
+        runGameLoop(durations);
+    }
+
+    @Override
+    public Properties getProperties() {
+        return gameProperties;
+    }
+
+    private void runGameLoop(Map<String, Long> durations) {
+        List<AbilityPromptResponse> deferredResponses = new ArrayList<>();
+
         while (gameState != GameState.ENDED) {
-            if (gameState == GameState.PAUSED) {
-                sleep(100);
-                continue;
-            }
+            waitIfPaused();
 
             switch (gamePhase) {
-                case NIGHT      -> handleNightPhase(durations.get("nightTimeActionTimer"));
-                case DAY        -> handleDayPhase(durations.get("miscellaneousTimer"));
+                case NIGHT -> deferredResponses = handleNightPhase(durations.get("nightTimeActionTimer"));
+                case DAY -> handleDayPhase(deferredResponses, durations.get("miscellaneousTimer"));
                 case DISCUSSION -> handleDiscussionPhase(durations.get("daytimeDiscussionTimer"));
-                case VOTING     -> handleVotingPhase(durations.get("dayTimeVotingTimer"), durations.get("miscellaneousTimer"));
+                case VOTING -> handleVotingPhase(durations.get("dayTimeVotingTimer"), durations.get("miscellaneousTimer"));
                 default -> {}
             }
         }
     }
 
-    private void handleNightPhase(long nightDuration) {
-        var playersWithRequiredAbiliies = players.stream()
-            .filter(
-                p -> p.role()
-                    .getAbilities()
-                    .stream()
-                    .filter(Ability::required)
-                    .count() > 0
-                    && p.state() == PlayerState.ALIVE
-            ).toList();
-        
-        // create prompt for each player
+    private void waitIfPaused() {
+        pauseLock.lock();
+        try {
+            while (gameState == GameState.PAUSED) {
+                unpaused.await();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            pauseLock.unlock();
+        }
+    }
+
+    private List<AbilityPromptResponse> handleNightPhase(long nightDuration) {
+        var dispatcher = new NightPhaseDispatcher(gameProperties, gameChannels);
+        dispatcher.immediateAbilityResponseResolver(this::resolveImmediateAbilityResponse);
         var alivePlayers = alivePlayers();
-        for (var player : playersWithRequiredAbiliies) {
+        for (var player : playersWithOptionalAbilities()) {
             sendAbilityPrompt(
                 player,
-                filter(player.role().getAbilities(), Ability::required),
+                validNightAbilities(player),
                 alivePlayers
             );
         }
 
+        dispatcher.start();
         runTimer("nightTimeLeft", "Night", nightDuration, null);
+        dispatcher.stop();
+
         setPhase(GamePhase.DAY);
+        return dispatcher.drainDeferred();
+    }
+
+    private List<Player> playersWithOptionalAbilities() {
+        return players.stream()
+            .filter(
+                p -> p.role()
+                    .getAbilities()
+                    .stream()
+                    .filter(Ability::optional)
+                    .count() > 0
+                    && p.state() == PlayerState.ALIVE
+            ).toList();
+    }
+
+    private List<Ability> validNightAbilities(Player player) {
+        var abilities = filter(player.role().getAbilities(), a -> a.optional() && a.abilityTime().equalsIgnoreCase("night"));
+        List<Ability> validOptionalAbilities = new ArrayList<>();
+        for (var ability : abilities) {
+            if (ability.conditions().isEmpty()) {
+                validOptionalAbilities.add(ability);
+                continue;
+            }
+
+            for (var condition : ability.conditions()) {
+                try {
+                    if ((Boolean) expressionEngine.evalaute(condition, player.getProperties()).result()) {
+                        validOptionalAbilities.add(ability);
+                        break;
+                    }
+                } catch (Exception e) {
+                    continue;
+                }
+            }
+        }
+        return validOptionalAbilities;
     }
 
     @SuppressWarnings("unchecked")
-    private void handleDayPhase(long takeDownDuration) {
-        var responses = new ArrayList<PromptResponse>();
-        while (promptResponseChannel.hasSent()) {
-            responses.add(promptResponseChannel.receive());
-        }
-
-        var contexts = new ArrayList<PlayerActionContext>();
-        for (var response : responses) {
-            if (!(response instanceof AbilityPromptResponse res)) {
-                throw new IllegalStateException("Expected AbilityPromptResponse but got " + response.getClass());
-            }
-
-            contexts.add(resolveAbilityResponse(res));
-        }
-
+    private void handleDayPhase(
+        List<AbilityPromptResponse> deferredResponses,
+        long takeDownDuration
+    ) {
+        var dispatcher = new DayPhaseDispatcher(deferredResponses, gameProperties, gameChannels);
+        var contexts = dispatcher.resolve(this::resolveAbilityResponse);
         playerEngine.updatePlayersState(contexts, players, configuration);
 
-        var isAnonymousHeal = configuration.getBooleanConfiguration(
-                                "general", 
-                                "anonymousHeal"
-                            );
-        
-        var killedThisNight = filterPlayer(p -> p.state() == PlayerState.KILLED);
+        var isAnonymousHeal = configuration.getBooleanConfiguration("general", "anonymousHeal");
+
+        List<Player> killedThisNight = filterPlayer(p -> p.state() == PlayerState.KILLED);
         var healedThisNight = isAnonymousHeal ? List.<Player>of() : filterPlayer(p -> p.state() == PlayerState.SAVED);
 
         applySoulmateDeaths(killedThisNight);
         killedThisNight = killedThisNight.stream().distinct().toList();
         killedThisNight.forEach(p -> p.state(PlayerState.DEAD));
-        if (!isAnonymousHeal) {
-            healedThisNight.forEach(p -> p.state(PlayerState.ALIVE));
-        }
+        if (!isAnonymousHeal) healedThisNight.forEach(p -> p.state(PlayerState.ALIVE));
 
         var killedEvents = mapToList(killedThisNight, p -> new NightEvent(PlayerState.KILLED, p));
         var healedEvents = isAnonymousHeal ? List.<NightEvent>of() : 
             mapToList(healedThisNight, p -> new NightEvent(PlayerState.SAVED, p));
         var update = new NightActionResolutionUpdate(combineLists(killedEvents, healedEvents));
-        gameUpdateChannel.send(update);
+        gameChannels.gameUpdateChannel().send(update);
         
         revealPlayerPrimaryRoles(killedThisNight, GamePhase.DAY);
         resolveTriggeredAbilities(
@@ -242,7 +296,7 @@ public class GameEngine implements PropertyHolder {
             alivePlayers(),
             takeDownDuration
         );
-        
+
         var aliveEvilPlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE && p.alignment().equals("Evil"));
         if (alivePlayers().size() < 3 || aliveEvilPlayers.size() == 0) {
             concludeRound();
@@ -256,7 +310,36 @@ public class GameEngine implements PropertyHolder {
         setPhase(GamePhase.VOTING);
     }
 
+    @SuppressWarnings("unchecked")
     private void handleVotingPhase(long votingDuration, long takeDownDuration) {
+
+        var dispatcher = new VotingPhaseDispatcher(gameProperties, gameChannels);
+
+        sendVotePrompts();
+        dispatcher.start();
+        runTimer("votingTimeLeft", "Voting", votingDuration, null);
+        dispatcher.stop();
+
+        var result = new VoteResult(dispatcher.votes(), configuration);
+        gameChannels.gameUpdateChannel().send(new VotingResultUpdate(result));
+
+        if (result.target() != null) {
+            revealPlayerPrimaryRoles(
+                combineLists(List.of(result.target()), result.affectedByTarget()),
+                GamePhase.VOTING
+            );
+
+            resolveTriggeredAbilities(
+                List.of(result.target()),
+                alivePlayers(),
+                takeDownDuration
+            );
+        }
+
+        concludeRound();
+    }
+
+    private void sendVotePrompts() {
         var alivePlayers = alivePlayers();
 
         var choices = mapToList(alivePlayers, VotePromptOption::new);
@@ -265,41 +348,8 @@ public class GameEngine implements PropertyHolder {
                 player, 
                 choices
             );
-            promptChannel.send(prompt);
+            gameChannels.promptChannel().send(prompt);
         }
-
-        runTimer("votingTimeLeft", "Voting", votingDuration, null);
-
-        var votes = new ArrayList<PlayerVote>();
-        while (promptResponseChannel.hasSent()) {
-            var response = promptResponseChannel.receive();
-            if (!(response instanceof VotePromptResponse res)) {
-                throw new IllegalStateException("Expected VotePromptResponse but got " + response.getClass());
-            }
-            
-            votes.add(new PlayerVote(res.source(), res.voteOption().player()));
-        }
-        
-        var result = new VoteResult(votes, configuration);
-        gameUpdateChannel.send(new VotingResultUpdate(result));
-    
-        if (result.target() != null) {
-            var target = result.target();
-            var playersToReveal = new ArrayList<Player>();
-            playersToReveal.add(target);
-            playersToReveal.addAll(result.affectedByTarget());
-            revealPlayerPrimaryRoles(playersToReveal, GamePhase.VOTING);
-
-            alivePlayers = filterPlayer(p -> p.state() == PlayerState.ALIVE);
-
-            resolveTriggeredAbilities(
-                List.of(target),
-                alivePlayers,
-                takeDownDuration
-            );
-        }
-
-        concludeRound();
     }
 
     private void resolveTriggeredAbilities(
@@ -307,8 +357,6 @@ public class GameEngine implements PropertyHolder {
         List<Player> validTargets,
         long timeoutSeconds
     ) { 
-        var triggeredContexts = new ArrayList<PlayerActionContext>();
-
         var triggeredPlayers = new ArrayList<Player>();
         for (var player : sources) {
             var ability = getTriggeredAbility(player);
@@ -330,17 +378,19 @@ public class GameEngine implements PropertyHolder {
             "miscellaneousTimeLeft",
             "Miscellaneous tasks",
             timeoutSeconds,
-            _ -> promptResponseChannel.size() >= triggeredPlayers.size()
+            _ -> gameChannels.promptResponseChannel().size() >= triggeredPlayers.size()
         );
 
-        for (int i = 0; i < triggeredPlayers.size(); i++) {
-            var response = promptResponseChannel.receive();
-            if (!(response instanceof AbilityPromptResponse res)) {
-                throw new IllegalStateException(
-                    "Expected AbilityPromptResponse but got " + response.getClass()
-                );
-            }
+        var responses = new ArrayList<PromptResponse>();
+        while (gameChannels.promptResponseChannel().hasSent()) {
+            responses.add(gameChannels.promptResponseChannel().receive());
+        }
 
+        var triggeredContexts = new ArrayList<PlayerActionContext>();
+        for (var response : responses) {
+            if (!(response instanceof AbilityPromptResponse res)) {
+                throw new IllegalStateException("Expected AbilityPromptResponse but got " + response.getClass());
+            }
             triggeredContexts.add(resolveAbilityResponse(res));
         }
 
@@ -385,7 +435,7 @@ public class GameEngine implements PropertyHolder {
         );
 
         if (secretRoles && secretVoteOut) {
-            gameUpdateChannel.send(new RoleRevealUpdate(List.of()));
+            gameChannels.gameUpdateChannel().send(new RoleRevealUpdate(List.of()));
             return;    
         }
 
@@ -407,7 +457,7 @@ public class GameEngine implements PropertyHolder {
             var p = playersToReveal.getFirst();
             reveals.add(new RoleReveal(p, p.role(), p.secondaryRole()));
         }
-        gameUpdateChannel.send(new RoleRevealUpdate(reveals));
+        gameChannels.gameUpdateChannel().send(new RoleRevealUpdate(reveals));
     }
 
     private void applySoulmateDeaths(List<Player> killed) {
@@ -430,10 +480,10 @@ public class GameEngine implements PropertyHolder {
         List<Ability> abilities,
         List<Player> targets
     ) {
-        promptChannel.send(
+        gameChannels.promptChannel().send(
             new AbilityPrompt(
                 player,
-                mapToList(abilities, a -> new PromptOption(a.name())),
+                mapToList(abilities, AbilityPromptOption::new),
                 targets
             )
         );
@@ -452,9 +502,7 @@ public class GameEngine implements PropertyHolder {
         return null;
     }
 
-    private PlayerActionContext resolveAbilityResponse(
-        AbilityPromptResponse res
-    ) {
+    private PlayerActionContext resolveAbilityResponse(AbilityPromptResponse res) {
         var source = res.source();
         var ability = source.role().getAbilities().stream()
             .filter(a -> a.name().equalsIgnoreCase(res.option().option()))
@@ -462,6 +510,18 @@ public class GameEngine implements PropertyHolder {
             .orElseThrow();
 
         return new PlayerActionContext(source, res.target(), ability);
+    }
+
+    private Message resolveImmediateAbilityResponse(AbilityPromptResponse res) {
+        var abilityName = res.abilityOption().ability().name().toLowerCase();
+        switch (abilityName) {
+            case "investigate" -> {
+                var context = resolveAbilityResponse(res);
+                playerEngine.updatePlayerState(context, players, configuration);
+                return new Information(res.source(), context.playerActionResult());
+            }
+            default -> throw new IllegalStateException("Unexpected immediate ability to resolve: " + abilityName);
+        }
     }
 
     private List<Player> alivePlayers() {
@@ -473,19 +533,19 @@ public class GameEngine implements PropertyHolder {
         var continueRound = evaluateBooleanExpression("continueRoundConditions");
 
         if (evilWin) {
-            gameUpdateChannel.send(new GameEnded("Evil wins"));
+            gameChannels.gameUpdateChannel().send(new GameEnded("Evil wins"));
             gameState = GameState.ENDED;
         } else if (continueRound) {
-            gameUpdateChannel.send(new PlayerRemainingUpdate(filterPlayer(p -> p.state() == PlayerState.ALIVE)));
+            gameChannels.gameUpdateChannel().send(new PlayerRemainingUpdate(filterPlayer(p -> p.state() == PlayerState.ALIVE)));
             var nightCounter = (int) gameProperties.getProperty("nightCounter");
             gameProperties.addProperty("nightCounter", nightCounter + 1);
             setPhase(GamePhase.NIGHT);
         } else {
-            gameUpdateChannel.send(new GameEnded("Good wins"));
+            gameChannels.gameUpdateChannel().send(new GameEnded("Good wins"));
             gameState = GameState.ENDED;
         }
     }
-
+    
     private void runTimer(
         String propertyKey,
         String label,
@@ -497,16 +557,16 @@ public class GameEngine implements PropertyHolder {
         for (long i = seconds; i >= 0; i--) {
             if (stopCondition != null && stopCondition.test(i)) {
                 gameProperties.addProperty(propertyKey, 0L);
-                gameUpdateChannel.send(new TimeRemainingUpdate(label, 0));
+                gameChannels.gameUpdateChannel().send(new TimeRemainingUpdate(label, 0));
                 break;
             }
 
             sleepInSeconds(1);
             gameProperties.addProperty(propertyKey, i);
-            gameUpdateChannel.send(new TimeRemainingUpdate(label, i));
+            gameChannels.gameUpdateChannel().send(new TimeRemainingUpdate(label, i));
         }
     }
-    
+
     private boolean evaluateBooleanExpression(String category) {
         for (var rule : gameRules.getRules(category)) {
             if ((Boolean) expressionEngine.evalaute(rule, gameProperties).result()) {
@@ -554,12 +614,8 @@ public class GameEngine implements PropertyHolder {
     }
 
     private void setPhase(GamePhase phase) {
-        gameUpdateChannel.send(new PhasedChangedUpdate(gamePhase, phase));
+        gameChannels.gameUpdateChannel().send(new PhasedChangedUpdate(gamePhase, phase));
+        gameProperties.addProperty("phase", phase);
         gamePhase = phase;
-    }
-
-    @Override
-    public Properties getProperties() {
-        return gameProperties;
     }
 }

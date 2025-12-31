@@ -4,9 +4,8 @@ import mafia.engine.player.action.PlayerActionContext;
 
 public class RuleEngine {
     
-    public void process(String abiliyUse, PlayerActionContext context) {
-        
-        switch (abiliyUse.toLowerCase()) {
+    public void process(String abilityTimeUsage, PlayerActionContext context) {
+        switch (abilityTimeUsage.toLowerCase()) {
             case "before" -> {
                 switch (context.ability().getAction()) {
                     default -> {}
@@ -46,7 +45,7 @@ public class RuleEngine {
                     default -> throw new IllegalArgumentException("Unexpected value: " + ability.getAction());
                 }
             }
-            default -> throw new IllegalArgumentException("Unexpected value: " + abiliyUse);
+            default -> throw new IllegalArgumentException("Unexpected value: " + abilityTimeUsage);
         }
     }
 }

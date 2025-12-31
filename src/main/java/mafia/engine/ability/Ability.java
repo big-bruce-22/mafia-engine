@@ -1,5 +1,7 @@
 package mafia.engine.ability;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -26,7 +28,16 @@ public class Ability implements PropertyHolder {
     private String description;
 
     @Getter
+    @JsonProperty("required")
     private boolean required;
+
+    @Getter
+    @JsonProperty("immediateResult")
+    private boolean immediateResult;
+    
+    @Getter
+    @JsonProperty("optional")
+    private boolean optional;
 
     @Getter
     @JsonProperty("trigger")
@@ -35,6 +46,14 @@ public class Ability implements PropertyHolder {
     @Getter
     @JsonProperty("abilityProperties")
     private Map<String, Object> abilityProperties;
+
+    @Getter
+    @JsonProperty("conditions")
+    private List<String> conditions = new ArrayList<>();
+
+    @Getter
+    @JsonProperty("abilityTime")
+    private String abilityTime;
 
     @Getter @Setter
     private boolean isUsable = true;
@@ -58,9 +77,34 @@ public class Ability implements PropertyHolder {
         properties.addProperty("description", description);
     }
 
-    public void setRequired(boolean required) {
-        this.required = required;
-        properties.addProperty("required", required);
+    public void setImmediateResult(boolean immediateResult) {
+        this.immediateResult = immediateResult;
+        properties.addProperty("immediateResult", immediateResult);
+    }
+
+    public void setOptional(boolean optional) {
+        this.optional = optional;
+        properties.addProperty("optional", optional);
+    }
+
+    public void setTrigger(String trigger) {
+        this.trigger = trigger;
+        properties.addProperty("trigger", trigger);
+    }
+
+    public void setAbilityProperties(Map<String, Object> abilityProperties) {
+        this.abilityProperties = abilityProperties;
+        properties.addProperty("abilityProperties", abilityProperties);
+    }
+
+    public void setConditions(List<String> conditions) {
+        this.conditions = conditions;
+        properties.addProperty("conditions", conditions);
+    }
+
+    public void setAbilityTime(String abilityTime) {
+        this.abilityTime = abilityTime;
+        properties.addProperty("abilityTime", abilityTime);
     }
 
     @Override

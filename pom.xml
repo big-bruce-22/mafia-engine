@@ -6,7 +6,7 @@
 
     <groupId>mafia.engine</groupId>
     <artifactId>mafia-engine</artifactId>
-    <version>Beta 1.0.0</version>
+    <version>Beta 1.0.1</version>
 
     <parent>
         <groupId>mafia</groupId>
